@@ -76,7 +76,7 @@ make desktop
 bash tests/check-audio.sh
 ```
 
-The original console tests on v0.1.0 covered MP3, FLAC (16-bit/48 kHz and 24-bit/96 kHz), ALAC and Opus, automatic track changes, pause/resume and seeking. The v0.2.0 mix workflow has been tested on desktop. Screenshots use the shared renderer. To capture the player, browser and mix menu, run the desktop build with `/path/to/music --capture preview`.
+The original console tests on v0.1.0 covered MP3, FLAC (16-bit/48 kHz and 24-bit/96 kHz), ALAC and Opus, automatic track changes, pause/resume and seeking. Creating, saving and reopening an M3U8 mix from the SD card has also been tested on a physical Nintendo Switch 2 with v0.2.0. Screenshots use the shared renderer. To capture the player, browser and mix menu, run the desktop build with `/path/to/music --capture preview`.
 
 ## Credits
 
