@@ -10,7 +10,7 @@ Play music from an SD card on Nintendo Switch 2. The classic skin pairs a green 
 2. Put music in `sdmc:/music/` or any folder on the card.
 3. Open WinampNX2 from a working Switch 2 homebrew menu. Press **A** on a track. Use **X** to browse other folders. Opening a file loads the playable files in its folder as the playlist, in filename order. The player opens the SD root if the music folder is missing.
 
-The v0.1.0 binary targets **Switch 2** using ounce-devkit 20261117. The NRO was cross-compiled and its embedded metadata verified. A tester launched v0.1.0 on a physical Nintendo Switch 2 and played one local MP3 from the SD card. Other formats, playback controls and track transitions are awaiting hardware testing. A startup failure is logged to `sdmc:/switch/WinampNX2/startup-error.txt` when the application directory is writable.
+The v0.1.0 binary targets **Switch 2** using ounce-devkit 20261117. The NRO was cross-compiled and its embedded metadata verified. Playback from the SD card has been confirmed on a physical Nintendo Switch 2 with an MP3 and four additional test files: FLAC (16-bit/48 kHz), ALAC (16-bit/48 kHz), Opus and FLAC (24-bit/96 kHz source). Automatic track changes, pause/resume and seeking still await separate on-device confirmation. A startup failure is logged to `sdmc:/switch/WinampNX2/startup-error.txt` when the application directory is writable.
 
 ## Audio
 
