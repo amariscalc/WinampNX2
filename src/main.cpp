@@ -52,6 +52,8 @@ int main(int argc,char** argv) {
                     capture(*skin,prefix+"-player.ppm");
                     player.input(Key::Browse);
                     skin->draw(player);device.present(skin->pixels.data());capture(*skin,prefix+"-files.ppm");
+                    player.input(Key::Mix);
+                    skin->draw(player);device.present(skin->pixels.data());capture(*skin,prefix+"-mix.ppm");
                     break;
                 }
             }

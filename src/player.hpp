@@ -1,18 +1,22 @@
 #pragma once
 #include "decoder.hpp"
+#include "playlist.hpp"
 #include "dsp.hpp"
 #include "platform.hpp"
 #include <memory>
 #include <random>
 
-struct Entry {std::string path,name,ext; bool directory;};
-std::vector<Entry> listMusic(const std::string& path);
-std::string upper(std::string text);
 enum class View {Playlist,Files,Eq};
 struct Player {
     Platform& device;
-    std::string root, folder, notice;
-    std::vector<Entry> queue,files;
+    std::string root, folder, notice, queueName="LOCAL PLAYLIST", musicFolder;
+    std::vector<Entry> queue,files,draft;
+    bool menu=false;
+    int menuRow=0;
+    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, ActionCount};
+    void mixAction(MixAction action);
+    void openMenu();
+    std::string menuLabel(MixAction action) const;
     std::unique_ptr<Decoder> audio;
     Equalizer eq;
     std::array<float,32> bars{};

@@ -179,7 +179,7 @@ void listing(Canvas& c,const Player& p) {
     int active=browse?p.fileRow:p.selected,top=p.topRow();
     c.panel(374,10,258,311);c.title(380,15,246,browse?"SD FILE BROWSER":"PLAYLIST EDITOR");
     c.inset(383,38,240,24,0x14171c);
-    c.text(390,44,browse?p.folder:"LOCAL PLAYLIST",browse?gold:paper,small,185);
+    c.text(390,44,browse?p.folder:p.queueName,browse?gold:paper,small,185);
     c.text(586,44,std::to_string(items.size()),dimGreen,small,30);
     c.inset(383,65,240,192);
     if(items.empty()) {
@@ -194,9 +194,11 @@ void listing(Canvas& c,const Player& p) {
         char num[16];std::snprintf(num,sizeof num,"%02d",i+1);
         if(playing) c.triangle(391,y+6,7,false,green);
         else c.text(390,y+4,e.directory?">":num,i==active?0xc3c4df:dimGreen);
-        c.text(409,y+1,e.name,color,body,163);
+        bool add=browse && e.track();
+        c.text(409,y+1,e.name,color,body,add?146:160);
         std::string suffix=e.directory?"DIR":e.ext;
-        c.text(608-c.measure(suffix,small),y+4,suffix,i==active?0xd0cfdc:dimGreen);
+        c.text((add?588:608)-c.measure(suffix,small),y+4,suffix,i==active?0xd0cfdc:dimGreen);
+        if(add) c.button(593,y,20,18,"+");
     }
     c.inset(615,70,5,181,0x171e19);
     int sh=std::max(9,180*std::min(Player::visible,int(items.size()))/std::max(1,int(items.size())));
@@ -209,8 +211,20 @@ void listing(Canvas& c,const Player& p) {
         std::string times=clockText(p.position)+" / "+(p.audio?clockText(p.audio->duration):"--:--");
         c.text(616-c.measure(times,small),268,times,green);
     }
-    c.button(383,291,72,20,"PLAYLIST",!browse);c.button(459,291,72,20,"FILES",browse);
-    c.button(545,291,78,20,browse?"OPEN":"PLAY");
+    c.button(383,291,62,20,"PLAYLIST",!browse);c.button(448,291,47,20,"FILES",browse);
+    c.button(498,291,55,20,"MIX",p.menu);
+    c.button(556,291,67,20,browse?"OPEN":"PLAY");
+    if(p.menu) {
+        c.panel(383,36,240,221);c.title(389,42,228,"MIX MENU");
+        for(int row=0;row<Player::ActionCount;row++) {
+            int y=66+row*29;
+            bool focus=row==p.menuRow;
+            c.box(392,y,221,25,focus?0x252a71:well);
+            c.text(401,y+4,p.menuLabel(static_cast<Player::MixAction>(row)),focus?lit:green,body,203);
+        }
+        c.text(392,216,"Draft: "+std::to_string(p.draft.size())+" tracks",muted);
+        c.button(544,226,68,20,"CLOSE");
+    }
 }
 }
 void Skin::draw(const Player& p) {
@@ -222,10 +236,19 @@ void Skin::draw(const Player& p) {
     std::string guide=p.view==View::Eq?"D-PAD  Band / gain      A  EQ on/off      Y  Playlist":
         p.view==View::Files?"D-PAD  Select      A  Open      B  Parent      X  Playlist":
         "A  Play / pause     X  Files     Y  EQ     L/R  Track";
-    c.text(13,339,guide,0xc1c1ca);c.text(525,339,"ZL/ZR  Vol    + Exit",muted,small);
+    if(p.menu) guide="D-PAD  Select      A  Choose      B  Close";
+    c.text(13,339,guide,0xc1c1ca);
+    c.text(466,339,"WinampNX2 0.2.0 / by amariscalc",gold,small);
 }
 void Skin::touch(Player& p,const Input& e) {
     int x=e.x,y=e.y;bool tap=e.key==Key::Tap;
+    if(p.menu) {
+        if(!tap) return;
+        if(x>=392 && x<613 && y>=66 && y<66+Player::ActionCount*29) {
+            p.mixAction(static_cast<Player::MixAction>((y-66)/29));
+        } else p.menu=false;
+        return;
+    }
     if(x>=19 && x<=355 && y>=121 && y<=141 && p.audio) {
         p.seek((x-20)/334.*p.audio->duration);return;
     }
@@ -249,12 +272,13 @@ void Skin::touch(Player& p,const Input& e) {
     else if(y>=210 && y<=229 && x>=65 && x<=108) {p.eq.preamp=0;p.eq.gain.fill(0);p.eq.rebuild();}
     else if(x>=386 && x<=613 && y>=69 && y<249) {
         int index=p.topRow()+(y-69)/20;
-        if(p.view==View::Files) {if(index<int(p.files.size())) {p.fileRow=index;p.chooseFile();}}
+        if(p.view==View::Files) {if(index<int(p.files.size())) {p.fileRow=index;if(x>=593 && p.files[index].track()) p.mixAction(Player::Add);else p.chooseFile();}}
         else if(index<int(p.queue.size())) {p.view=View::Playlist;p.selected=index;p.enter();}
     } else if(x>=614 && x<=623 && y>=69 && y<=253) {
         bool browse=p.view==View::Files;int n=browse?p.files.size():p.queue.size();
         (browse?p.fileRow:p.selected)=std::clamp((y-69)*n/185,0,std::max(0,n-1));
-    } else if(y>=290 && y<=312 && x>=383 && x<=455) p.view=View::Playlist;
-    else if(y>=290 && y<=312 && x>=459 && x<=531) p.view=View::Files;
-    else if(y>=290 && y<=312 && x>=545 && x<=623) p.enter();
+    } else if(y>=290 && y<=312 && x>=383 && x<=445) p.view=View::Playlist;
+    else if(y>=290 && y<=312 && x>=448 && x<=495) p.view=View::Files;
+    else if(y>=290 && y<=312 && x>=498 && x<=553) p.openMenu();
+    else if(y>=290 && y<=312 && x>=556 && x<=623) p.enter();
 }

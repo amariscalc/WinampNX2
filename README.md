@@ -1,66 +1,74 @@
 # WinampNX2
 
-Play music from an SD card on Nintendo Switch 2. The classic skin pairs a green spectrum analyzer and seven-segment clock with transport controls, a ten-band equalizer and a docked playlist. The analyzer reads the PCM stream. All artwork is drawn by the application.
+A local music player for Nintendo Switch 2 by [amariscalc](https://github.com/amariscalc). The interface takes its cues from classic Winamp: a green spectrum display, a ten-band equalizer and a docked playlist editor.
 
-![WinampNX2 playing a local FLAC file](docs/player.png)
+![WinampNX2 playing a FLAC file](docs/player.png)
 
 ## Install
 
-1. Download [WinampNX2.nro](dist/WinampNX2.nro) and copy it to `sdmc:/switch/WinampNX2/WinampNX2.nro`.
-2. Put music in `sdmc:/music/` or any folder on the card.
-3. Open WinampNX2 from a working Switch 2 homebrew menu. Press **A** on a track. Use **X** to browse other folders. Opening a file loads the playable files in its folder as the playlist, in filename order. The player opens the SD root if the music folder is missing.
+1. Download [WinampNX2.nro](dist/WinampNX2.nro) and copy it to `/switch/WinampNX2/WinampNX2.nro` on the SD card. To update, replace the existing NRO.
+2. Put music in `/music/`, or press **X** in the player to browse another folder.
+3. Launch WinampNX2 from hbmenu. Select a track and press **A**. Opening an audio file queues the tracks in that folder in filename order.
 
-The v0.1.0 binary targets **Switch 2** using ounce-devkit 20261117. The NRO was cross-compiled and its embedded metadata verified. Playback from the SD card has been confirmed on a physical Nintendo Switch 2 with an MP3 and four additional test files: FLAC (16-bit/48 kHz), ALAC (16-bit/48 kHz), Opus and FLAC (24-bit/96 kHz source). The four test tracks advanced automatically in sequence. On the 24-bit/96 kHz FLAC, A paused and resumed playback, and D-pad right advanced the audio and elapsed-time display by five seconds. A startup failure is logged to `sdmc:/switch/WinampNX2/startup-error.txt` when the application directory is writable.
+## Mixes
+
+Open **Files** and tap the **+** beside a track to add it to a mix. With a controller, highlight the track, press **Minus (−)** and choose **Add selected track**. Keep browsing to add songs from other folders. Additions go into a separate draft, so the current song keeps playing.
+
+Open **MIX → Save mix** to write the draft to `/music/Playlists/Mix-001.m3u8`. Each save uses the next available number. **Open saved mixes** takes you to that folder. Choose a mix to play it in the order you added the tracks. You can rename the file on a computer.
+
+- **Remove last addition** takes the most recently added track out of the draft.
+- **Save current playlist** writes the playing queue in its listed order.
+- A saved draft clears after a successful save. An unsaved draft lasts until you close the player.
+- Open local `.m3u8` or UTF-8 `.m3u` files from any SD folder. Relative paths resolve from the playlist file. SD-root paths such as `/music/track.flac` and `sdmc:/music/track.flac` also work. Missing tracks are skipped. If no tracks can be opened from the list because all entries are missing or unsupported, the current queue stays in place.
+
+![Mix menu in the SD browser](docs/mix.png)
 
 ## Audio
 
-| Family | Decoders compiled in this build |
+| Format | Supported files |
 | --- | --- |
-| Lossless | FLAC, ALAC, WavPack, Monkey’s Audio (APE), WMA Lossless and PCM |
+| Lossless | FLAC, ALAC, WavPack, Monkey’s Audio, WMA Lossless and PCM |
 | Lossy | MP3, AAC, Opus, Vorbis and WMA v1/v2 |
 | Containers | FLAC, MP3, raw AAC, MP4/M4A, Ogg, WAV, AIFF/AIFC, CAF, ASF/WMA, WavPack, APE and Matroska/WebM audio |
 
-Container support depends on the audio stream inside. Files are opened locally and decoded incrementally. The app reads title and artist tags when present and displays the active codec and source sample rate. It supports unencrypted files.
+Files are decoded locally with FFmpeg. The source codec, sample rate and available title and artist tags appear in the player. Support depends on the audio stream inside each file.
 
-**Output** is stereo PCM at **48 kHz, 16-bit** through libounce AudioOut. Other sample rates are resampled, multichannel sources are mixed to stereo, and higher bit depths are reduced at the output. The default is unity volume, centered balance and EQ bypass. At those settings, automated desktop tests produced sample-identical PCM from lossless 48 kHz, 16-bit stereo fixtures. Lossy files retain the fidelity of the encoded source.
+AudioOut delivers **48 kHz, 16-bit stereo PCM**. Higher sample rates and bit depths are converted for output, and multichannel audio is mixed to stereo. Volume starts at 100%, balance is centered and EQ starts in bypass. Desktop tests check that 48 kHz, 16-bit stereo lossless fixtures produce the same samples as the original WAV with those settings.
 
 ## Controls
 
 | Action | Switch 2 | Desktop |
 | --- | --- | --- |
 | Select a row | D-pad up/down | Up/down |
-| Play selection, pause or resume current track | A | Enter or Space |
+| Open selection, play or pause | A | Enter or Space |
 | Browse SD / return to playlist | X | X |
-| Parent folder, leave EQ, or stop from the playlist | B | Escape |
-| Seek backward/forward 5 seconds | D-pad left/right in the playlist | Left/right |
+| Mix menu | Minus (−) | M |
+| Parent folder, close menu, leave EQ, or stop in the playlist | B | Escape |
+| Seek five seconds | D-pad left/right in the playlist | Left/right |
 | Previous / next track | L / R | [ / ] |
 | Volume | ZL / ZR | Minus / equals |
-| Toggle shuffle / repeat playlist | Click left / right stick | S / R |
-| Focus equalizer | Y | Y |
-| Select EQ band / change gain | Left/right, then up/down | Arrow keys |
+| Shuffle / repeat playlist | Click left / right stick | S / R |
+| Equalizer | Y | Y |
+| Select EQ band / adjust gain | Left/right, then up/down | Arrow keys |
 | Toggle EQ while focused | A | Enter |
 | Exit | + | Q |
 
-Touch the transport buttons, playlist entries and folder entries directly. Drag the position, volume, balance or EQ sliders. Select **RESET** to return preamp and band gains to zero. With shuffle active, the next track is picked at random and may recur after another track.
+The transport buttons, browser, mix menu and sliders also accept touch input. Drag the progress slider to seek. **RESET** returns the preamp and band gains to zero.
 
-![SD file browser with playback continuing](docs/files.png)
+![Browsing music on the SD card](docs/files.png)
 
-Both screenshots are 1280 × 720 captures of the desktop build using the same renderer as the NRO. The displayed files were generated for testing.
+## Build and test
 
-## Build for Switch 2
-
-Install devkitPro devkitA64 and switch-tools, then install [ounce-devkit](https://github.com/ouncebrew/ounce-devkit/releases/tag/devkit-20261117). Set `DEVKITPRO` to that installation. Use a Linux shell with Bash, Make, curl, xz and sha256sum.
+For Switch 2, install devkitPro devkitA64, switch-tools and [ounce-devkit 20261117](https://github.com/ouncebrew/ounce-devkit/releases/tag/devkit-20261117). Set `DEVKITPRO` to the installation directory. The build uses Bash, Make, curl, xz and sha256sum.
 
 ```sh
 make -j4 switch
 sha256sum build/WinampNX2.nro
 ```
 
-The first build downloads the pinned FFmpeg 7.1.5 source, checks its SHA-256 and compiles an audio-only static library. Set `JOBS` to control the number of FFmpeg build jobs. To use an existing source archive, put it at `build/vendor/ffmpeg-7.1.5.tar.xz` before running Make. Compiler flags and the complete codec configuration are in [scripts/build-codecs.sh](scripts/build-codecs.sh). The [checksum](dist/SHA256SUMS) identifies the supplied binary.
+The first build fetches and verifies FFmpeg 7.1.5. To use a local copy, place the source archive at `build/vendor/ffmpeg-7.1.5.tar.xz` first. See the [codec build script](scripts/build-codecs.sh) and the [packaged binary checksum](dist/SHA256SUMS).
 
-## Desktop build and tests
-
-Install a C++17 compiler, pkg-config, SDL2 development headers and the FFmpeg 7 development libraries for avformat, avcodec, swresample and avutil. The audio tests also use the FFmpeg command-line encoder.
+The desktop build uses C++17, pkg-config, SDL2 and FFmpeg 7 development libraries (avformat, avcodec, swresample and avutil). Tests also use the FFmpeg command-line encoder.
 
 ```sh
 make desktop
@@ -68,12 +76,8 @@ make desktop
 bash tests/check-audio.sh
 ```
 
-The tests exercise decoding, sample equality for lossless files, 96 kHz conversion, pause, seek, EQ controls, folder navigation and automatic track transitions using a desktop audio device in dummy mode. To capture the running desktop player and SD browser, use a folder whose first track is longer than two seconds.
-
-```sh
-./build/WinampNX2 /path/to/music --capture preview
-```
+The original console tests on v0.1.0 covered MP3, FLAC (16-bit/48 kHz and 24-bit/96 kHz), ALAC and Opus, automatic track changes, pause/resume and seeking. The v0.2.0 mix workflow has been tested on desktop. Screenshots use the shared renderer. To capture the player, browser and mix menu, run the desktop build with `/path/to/music --capture preview`.
 
 ## Credits
 
-WinampNX2 is an independent homebrew project. Winamp and Nintendo Switch are trademarks of their respective owners. The classic-style graphics were drawn for this project. See [third-party notices](licenses/NOTICE.md) for the audio engine, runtime and font notices.
+Project by [amariscalc](https://github.com/amariscalc). Winamp and Nintendo Switch are trademarks of their respective owners. See [third-party notices](licenses/NOTICE.md) for FFmpeg, libounce and the embedded fonts.

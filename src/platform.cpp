@@ -88,7 +88,7 @@ std::vector<Input> Platform::poll() {
         {HidNpadButton_Left,Key::Left},{HidNpadButton_Right,Key::Right},{HidNpadButton_A,Key::Accept},
         {HidNpadButton_B,Key::Back},{HidNpadButton_X,Key::Browse},{HidNpadButton_Y,Key::Eq},
         {HidNpadButton_L,Key::Prev},{HidNpadButton_R,Key::Next},{HidNpadButton_ZL,Key::VolDown},
-        {HidNpadButton_ZR,Key::VolUp},{HidNpadButton_StickL,Key::Shuffle},{HidNpadButton_StickR,Key::Repeat},{HidNpadButton_Plus,Key::Quit}};
+        {HidNpadButton_ZR,Key::VolUp},{HidNpadButton_StickL,Key::Shuffle},{HidNpadButton_StickR,Key::Repeat},{HidNpadButton_Minus,Key::Mix},{HidNpadButton_Plus,Key::Quit}};
     for(auto [mask,key]:map) if(keys&mask) events.push_back({key});
     HidTouchScreenState t{};
     bool down=hidGetTouchScreenStates(&t,1)>0 && t.count>0;
@@ -144,7 +144,7 @@ std::vector<Input> Platform::poll() {
         if(e.type!=SDL_KEYDOWN) continue;
         const std::pair<int,Key> map[]={{SDLK_UP,Key::Up},{SDLK_DOWN,Key::Down},{SDLK_LEFT,Key::Left},{SDLK_RIGHT,Key::Right},
             {SDLK_RETURN,Key::Accept},{SDLK_SPACE,Key::Accept},{SDLK_ESCAPE,Key::Back},{SDLK_x,Key::Browse},{SDLK_y,Key::Eq},
-            {SDLK_LEFTBRACKET,Key::Prev},{SDLK_RIGHTBRACKET,Key::Next},{SDLK_MINUS,Key::VolDown},{SDLK_EQUALS,Key::VolUp},{SDLK_s,Key::Shuffle},{SDLK_r,Key::Repeat},{SDLK_q,Key::Quit}};
+            {SDLK_LEFTBRACKET,Key::Prev},{SDLK_RIGHTBRACKET,Key::Next},{SDLK_MINUS,Key::VolDown},{SDLK_EQUALS,Key::VolUp},{SDLK_s,Key::Shuffle},{SDLK_r,Key::Repeat},{SDLK_m,Key::Mix},{SDLK_q,Key::Quit}};
         for(auto [code,key]:map) if(e.key.keysym.sym==code) out.push_back({key});
     }
     return out;

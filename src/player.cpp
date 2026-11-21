@@ -1,47 +1,10 @@
 #include "player.hpp"
-#include <dirent.h>
-#include <sys/stat.h>
-#include <cerrno>
-#include <cstring>
 #include <ctime>
-#include <cctype>
-#include <set>
 #include <stdexcept>
-std::string upper(std::string s) {
-    for(char& c:s) if(c>='a' && c<='z') c-=32;
-    return s;
-}
-static std::string join(const std::string& path,const std::string& name) {
-    return path+(path.back()=='/'?"":"/")+name;
-}
-std::vector<Entry> listMusic(const std::string& path) {
-    static const std::set<std::string> types={"AAC","M4A","MP4","M4B","ALAC","FLAC","WAV","WAVE","AIF","AIFC","AIFF","MP3",
-        "OGG","OGA","OPUS","WV","APE","MKA","WEBM","WMA","CAF"};
-    std::unique_ptr<DIR,int(*)(DIR*)> dir(opendir(path.c_str()),closedir);
-    if(!dir) throw std::runtime_error(std::string("Open folder: ")+std::strerror(errno));
-    std::vector<Entry> entries;
-    while(auto* item=readdir(dir.get())) {
-        std::string name=item->d_name;
-        if(name.empty() || name.front()=='.') continue;
-        std::string full=join(path,name);
-        struct stat info{};
-        if(stat(full.c_str(),&info)!=0) continue;
-        bool folder=S_ISDIR(info.st_mode);
-        auto dot=name.rfind('.');
-        std::string ext=dot==std::string::npos?"":upper(name.substr(dot+1));
-        if(folder || (S_ISREG(info.st_mode) && types.count(ext)))
-            entries.push_back({full,folder?name:name.substr(0,dot),ext,folder});
-    }
-    std::sort(entries.begin(),entries.end(),[](const auto& a,const auto& b) {
-        if(a.directory!=b.directory) return a.directory;
-        return upper(a.name)<upper(b.name);
-    });
-    return entries;
-}
-Player::Player(Platform& d,std::string r,std::string f):device(d),root(std::move(r)),folder(std::move(f)),rng(std::time(nullptr)) {
+Player::Player(Platform& d,std::string r,std::string f):device(d),root(std::move(r)),folder(std::move(f)),musicFolder(folder),rng(std::time(nullptr)) {
     try { loadFolder(folder); }
     catch(const std::exception&) {loadFolder(root);}
-    for(auto& file:files) if(!file.directory) queue.push_back(file);
+    for(auto& file:files) if(file.track()) queue.push_back(file);
     if(queue.empty()) view=View::Files;
     eq.rebuild();
 }
@@ -117,10 +80,63 @@ void Player::chooseFile() {
     if(files.empty()) return;
     auto chosen=files[fileRow];
     if(chosen.directory) {loadFolder(chosen.path);return;}
-    queue.clear();
-    for(auto& f:files) if(!f.directory) queue.push_back(f);
+    if(chosen.playlist()) {
+        try {
+            auto loaded=readMix(root,chosen.path);
+            if(loaded.tracks.empty()) {notice="No playable tracks in this list";return;}
+            queue=std::move(loaded.tracks);
+            queueName=chosen.name; view=View::Playlist;
+            play(0);
+            if(audio && loaded.skipped) notice="Skipped "+std::to_string(loaded.skipped)+" unavailable";
+        } catch(const std::exception& error) {notice=error.what();}
+        return;
+    }
+    queue.clear();queueName="LOCAL PLAYLIST";
+    for(auto& f:files) if(f.track()) queue.push_back(f);
     auto it=std::find_if(queue.begin(),queue.end(),[&](const Entry& e){return e.path==chosen.path;});
     view=View::Playlist; play(int(it-queue.begin()));
+}
+void Player::openMenu() {
+    menu=!menu;menuRow=0;
+}
+std::string Player::menuLabel(MixAction action) const {
+    switch(action) {
+        case Add:return "Add selected track";
+        case Undo:return "Remove last addition";
+        case SaveDraft:return "Save mix ("+std::to_string(draft.size())+")";
+        case SaveQueue:return "Save current playlist";
+        case OpenSaved:return "Open saved mixes";
+        default:return {};
+    }
+}
+void Player::mixAction(MixAction action) {
+    menu=false;
+    try {
+        switch(action) {
+            case Add: {
+                const auto& items=view==View::Files?files:queue;
+                int index=view==View::Files?fileRow:selected;
+                if(index<0 || index>=int(items.size()) || !items[index].track()) {
+                    notice="Select a track to add";break;
+                }
+                draft.push_back(items[index]);
+                notice="Added to mix ("+std::to_string(draft.size())+")";break;
+            }
+            case Undo:
+                if(draft.empty()) notice="Mix is empty";
+                else {draft.pop_back();notice="Mix tracks: "+std::to_string(draft.size());}
+                break;
+            case SaveDraft: case SaveQueue: {
+                auto name=writeMix(musicFolder,action==SaveDraft?draft:queue);
+                if(action==SaveDraft) draft.clear();
+                if(view==View::Files && folder==mixDirectory(musicFolder)) loadFolder(folder);
+                notice="Saved "+name;break;
+            }
+            case OpenSaved:
+                loadFolder(mixDirectory(musicFolder));view=View::Files;break;
+            default:break;
+        }
+    } catch(const std::exception& error) {notice=error.what();}
 }
 void Player::toggleEq(){eq.on=!eq.on;eq.rebuild();}
 void Player::setGain(int value) {
@@ -134,6 +150,14 @@ void Player::enter() {
     else play(selected);
 }
 void Player::input(Key key) {
+    if(key==Key::Mix) {openMenu();return;}
+    if(menu) {
+        if(key==Key::Back) menu=false;
+        else if(key==Key::Up) menuRow=std::max(0,menuRow-1);
+        else if(key==Key::Down) menuRow=std::min(int(ActionCount)-1,menuRow+1);
+        else if(key==Key::Accept) mixAction(static_cast<MixAction>(menuRow));
+        return;
+    }
     switch(key) {
         case Key::Browse: view=view==View::Files?View::Playlist:View::Files; break;
         case Key::Eq: view=view==View::Eq?View::Playlist:View::Eq; break;

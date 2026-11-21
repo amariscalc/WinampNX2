@@ -20,5 +20,5 @@ encode wmav2 wma.wma
 ffmpeg -nostdin -v error -f lavfi -i 'sine=sample_rate=96000:duration=3' -c:a flac -sample_fmt s32 "$tmp/music/high-res.flac"
 read -ra flags <<< "${HOST_FLAGS:-$(pkg-config --cflags sdl2 libavformat libavcodec libswresample libavutil)}"
 read -ra libs <<< "${HOST_LIBS:-$(pkg-config --libs sdl2 libavformat libavcodec libswresample libavutil)}"
-"${CXX:-c++}" -std=c++17 -Isrc "${flags[@]}" tests/playback.cpp src/{player,platform,decoder}.cpp "${libs[@]}" -o "$tmp/tests"
+"${CXX:-c++}" -std=c++17 -Isrc "${flags[@]}" tests/playback.cpp src/{player,platform,decoder,playlist,skin}.cpp "${libs[@]}" -o "$tmp/tests"
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$tmp/tests" "$tmp/music"
