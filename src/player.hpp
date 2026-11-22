@@ -19,12 +19,17 @@ struct Player {
     static constexpr const char* alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_";
     void nameKey(Key key);
     void editMix(int action);
-    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, Rename, MoveUp, MoveDown, RemoveTrack, PlayNext, QueueLast, Favorite, Favorites, Presets, TrackInfo, Visualizer, ActionCount};
+    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, Rename, MoveUp, MoveDown, RemoveTrack, PlayNext, QueueLast, Favorite, Favorites, Presets, TrackInfo, Visualizer, Library, ActionCount};
     static constexpr int menuVisible=9;
     int menuTop() const {return std::max(0,menuRow-menuVisible+1);}
-    enum class Overlay {None, Presets, Info, Spectrum, Wave};
+    enum class Overlay {None, Presets, Info, Spectrum, Wave, Search};
     Overlay overlay=Overlay::None;
-    bool favoritesView=false;
+    bool favoritesView=false, libraryView=false;
+    std::vector<Entry> libraryResults;
+    std::string searchQuery;
+    int searchCharacter=0;
+    void searchLibrary();
+    void searchKey(Key key);
     std::vector<Entry> favorites;
     std::array<float,256> wave{};
     int presetRow=0, nextCount=0;
@@ -34,7 +39,7 @@ struct Player {
     std::string settingsDir;
     void loadExtras(const std::string& directory);
     void saveExtras() const;
-    const std::vector<Entry>& browserEntries() const {return favoritesView?favorites:files;}
+    const std::vector<Entry>& browserEntries() const {return libraryView?libraryResults:favoritesView?favorites:files;}
     void applyPreset(int row);
     static const char* presetName(int row);
     const Entry* highlightedTrack() const;

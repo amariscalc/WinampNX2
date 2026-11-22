@@ -23,5 +23,5 @@ ffmpeg -nostdin -v error -i "$tmp/music/mp3.mp3" -i "$tmp/cover.jpg" -map 0:a -m
     -c copy -id3v2_version 3 -metadata album=Covers "$tmp/music/Albums/art.mp3"
 read -ra flags <<< "${HOST_FLAGS:-$(pkg-config --cflags sdl2 libavformat libavcodec libswresample libswscale libavutil)}"
 read -ra libs <<< "${HOST_LIBS:-$(pkg-config --libs sdl2 libavformat libavcodec libswresample libswscale libavutil)}"
-"${CXX:-c++}" -std=c++17 -Isrc "${flags[@]}" tests/playback.cpp src/{player,platform,decoder,playlist,skin,session,extras}.cpp "${libs[@]}" -o "$tmp/tests"
+"${CXX:-c++}" -std=c++17 -Isrc "${flags[@]}" tests/playback.cpp src/{player,platform,decoder,playlist,skin,session,extras,library}.cpp "${libs[@]}" -o "$tmp/tests"
 SDL_VIDEODRIVER=dummy SDL_AUDIODRIVER=dummy "$tmp/tests" "$tmp/music"

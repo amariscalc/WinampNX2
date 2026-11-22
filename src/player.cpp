@@ -19,7 +19,7 @@ void Player::loadFolder(std::string path) {
         if(parent.size()<root.size()) parent=root;
         fresh.insert(fresh.begin(),{parent,"..","",true});
     }
-    favoritesView=false;files=std::move(fresh); folder=path; fileRow=0; notice.clear();
+    favoritesView=false;libraryView=false;files=std::move(fresh); folder=path; fileRow=0; notice.clear();
 }
 void Player::stop() {
     device.clearAudio(); audio.reset(); decoded.clear(); offset=0;
@@ -88,10 +88,11 @@ void Player::tick() {
     if(!queued && ended) step(1,true);
 }
 void Player::chooseFile() {
-    if(favoritesView) {
-        if(fileRow<0 || fileRow>=int(favorites.size())) return;
-        queue=favorites;mixPath.clear();queueName="FAVORITES";nextCount=0;
-        favoritesView=false;view=View::Playlist;
+    if(favoritesView || libraryView) {
+        const auto& entries=browserEntries();
+        if(fileRow<0 || fileRow>=int(entries.size())) return;
+        queue=entries;mixPath.clear();queueName=libraryView?"LIBRARY":"FAVORITES";nextCount=0;
+        favoritesView=false;libraryView=false;view=View::Playlist;
         const int index=fileRow;fileRow=0;play(index);return;
     }
     if(fileRow<0 || fileRow>=int(files.size())) return;
@@ -195,6 +196,7 @@ std::string Player::menuLabel(MixAction action) const {
         case Favorites:return "Browse favorites";
         case Presets:return "Equalizer presets";
         case TrackInfo:return "Now playing details";
+        case Library:return "Search music library";
         case Visualizer:return "Full-screen visualizer";
         case OpenSaved:return "Open saved mixes";
         default:return {};
@@ -248,7 +250,8 @@ void Player::mixAction(MixAction action) {
                 if(favoritesView) fileRow=std::clamp(fileRow,0,std::max(0,int(favorites.size())-1));
                 notice=adding?"Favorite added":"Favorite removed";break;
             }
-            case Favorites: favoritesView=true;view=View::Files;fileRow=0;notice.clear();break;
+            case Library: overlay=Overlay::Search;break;
+            case Favorites: libraryView=false;favoritesView=true;view=View::Files;fileRow=0;notice.clear();break;
             case Presets: overlay=Overlay::Presets;presetRow=0;break;
             case TrackInfo: if(audio) audio->loadCover();overlay=Overlay::Info;break;
             case Visualizer: overlay=Overlay::Spectrum;break;
@@ -270,6 +273,7 @@ void Player::enter() {
     else play(selected);
 }
 void Player::input(Key key) {
+    if(overlay==Overlay::Search) {searchKey(key);return;}
     if(overlay!=Overlay::None) {
         if(key==Key::Back || key==Key::Mix) overlay=Overlay::None;
         else if(overlay==Overlay::Presets) {
@@ -292,12 +296,12 @@ void Player::input(Key key) {
     }
     switch(key) {
         case Key::Browse:
-            if(favoritesView) loadFolder(folder);
+            if(favoritesView || libraryView) loadFolder(folder);
             else view=view==View::Files?View::Playlist:View::Files;
             break;
         case Key::Eq: view=view==View::Eq?View::Playlist:View::Eq; break;
         case Key::Back:
-            if(view==View::Files && favoritesView) {loadFolder(folder);view=View::Playlist;}
+            if(view==View::Files && (favoritesView || libraryView)) {loadFolder(folder);view=View::Playlist;}
             else if(view==View::Files && folder!=root && !files.empty()) loadFolder(files.front().path);
             else if(view!=View::Playlist) view=View::Playlist;
             else stop();
@@ -305,7 +309,7 @@ void Player::input(Key key) {
         case Key::Up: case Key::Down: {
             int delta=key==Key::Up?-1:1;
             if(view==View::Eq) setGain((band==0?eq.preamp:eq.gain[band-1])-delta);
-            else if(view==View::Files) fileRow=std::clamp(fileRow+delta,0,std::max(0,int((favoritesView?favorites:files).size())-1));
+            else if(view==View::Files) fileRow=std::clamp(fileRow+delta,0,std::max(0,int(browserEntries().size())-1));
             else selected=std::clamp(selected+delta,0,std::max(0,int(queue.size())-1));
             break;
         }

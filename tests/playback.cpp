@@ -130,6 +130,28 @@ static void checkExtras(Platform& device,const std::string& folder) {
     Decoder cover;cover.open((directory/"art.mp3").string());cover.loadCover();
     assert(cover.album=="Covers" && cover.cover.size()==Decoder::coverSide*Decoder::coverSide);
 }
+static void checkLibrary(Platform& device,const std::string& folder) {
+    Player player(device,folder,folder);
+    player.play(0);
+    auto* playing=player.audio.get();
+    player.mixAction(Player::Library);
+    assert(player.overlay==Player::Overlay::Search);
+    player.searchQuery="cOvErS";
+    player.input(Key::Accept);
+    assert(player.audio.get()==playing && player.libraryView);
+    assert(player.browserEntries().size()==1 && player.browserEntries().front().name=="art");
+    player.mixAction(Player::PlayNext);
+    assert(player.audio.get()==playing && player.queue.at(1).name=="art");
+    player.enter();
+    assert(player.audio && player.audio->album=="Covers" && player.queueName=="LIBRARY");
+    player.searchQuery="no matching track";
+    player.searchLibrary();
+    assert(player.browserEntries().empty());
+    player.enter();
+    assert(player.audio && player.audio->album=="Covers");
+    player.input(Key::Back);
+    assert(!player.libraryView && player.view==View::Playlist);
+}
 // Run with the fixtures created by check-audio.sh.
 int main(int argc,char** argv) {
     assert(argc==2);
@@ -172,5 +194,6 @@ int main(int argc,char** argv) {
     checkMixes(p,folder);p.stop();
     checkResume(device,folder);
     checkExtras(device,folder);
+    checkLibrary(device,folder);
     std::cout<<"PCM equality, pause, seek, EQ, folder navigation and end-of-track transitions passed.\n";
 }

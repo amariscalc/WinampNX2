@@ -177,9 +177,9 @@ void listing(Canvas& c,const Player& p) {
     bool browse=p.view==View::Files;
     auto& items=browse?p.browserEntries():p.queue;
     int active=browse?p.fileRow:p.selected,top=p.topRow();
-    c.panel(374,10,258,311);c.title(380,15,246,browse?(p.favoritesView?"FAVORITES":"SD FILE BROWSER"):"PLAYLIST EDITOR");
+    c.panel(374,10,258,311);c.title(380,15,246,browse?(p.libraryView?"LIBRARY":p.favoritesView?"FAVORITES":"SD FILE BROWSER"):"PLAYLIST EDITOR");
     c.inset(383,38,240,24,0x14171c);
-    c.text(390,44,browse?(p.favoritesView?"FAVORITES":p.folder):p.queueName,browse?gold:paper,small,185);
+    c.text(390,44,browse?(p.libraryView?"LIBRARY":p.favoritesView?"FAVORITES":p.folder):p.queueName,browse?gold:paper,small,185);
     c.text(586,44,std::to_string(items.size()),dimGreen,small,30);
     c.inset(383,65,240,192);
     if(items.empty()) {
@@ -236,6 +236,17 @@ void listing(Canvas& c,const Player& p) {
 }
 void fullScreen(Canvas& c,const Player& p) {
     using Overlay=Player::Overlay;
+    if(p.overlay==Overlay::Search) {
+        c.panel(8,10,624,314);c.title(14,15,612,"SEARCH MUSIC LIBRARY");
+        c.inset(25,50,590,36);
+        c.text(36,58,p.searchQuery+"_",green,body,566);
+        c.text(36,105,"Character: "+std::string(1,Player::alphabet[p.searchCharacter]),gold,body);
+        c.text(36,136,"Up/down select   Right adds   Left deletes",paper,body);
+        c.text(36,163,"A searches /music   B returns",paper,body);
+        const char* labels[]={"PREV","NEXT","ADD","DELETE","SEARCH","BACK"};
+        for(int i=0;i<6;i++) c.button(25+100*i,225,94,32,labels[i]);
+        return;
+    }
     const bool presets=p.overlay==Overlay::Presets, info=p.overlay==Overlay::Info;
     c.panel(8,10,624,314);
     c.title(14,15,612,presets?"EQUALIZER PRESETS":info?"NOW PLAYING":p.overlay==Overlay::Wave?"OSCILLOSCOPE":"SPECTRUM ANALYZER");
@@ -297,10 +308,17 @@ void Skin::draw(const Player& p) {
         "A  Play / pause     X  Files     Y  EQ     L/R  Track";
     if(p.menu) guide="D-PAD  Select      A  Choose      B  Close";
     c.text(13,339,guide,0xc1c1ca);
-    c.text(466,339,"WinampNX2 0.5.0 / by amariscalc",gold,small);
+    c.text(466,339,"WinampNX2 0.6.0 / by amariscalc",gold,small);
 }
 void Skin::touch(Player& p,const Input& e) {
     int x=e.x,y=e.y;bool tap=e.key==Key::Tap;
+    if(p.overlay==Player::Overlay::Search) {
+        if(tap && x>=25 && x<625 && y>=225 && y<257) {
+            const Key keys[]={Key::Down,Key::Up,Key::Right,Key::Left,Key::Accept,Key::Back};
+            p.searchKey(keys[(x-25)/100]);
+        }
+        return;
+    }
     if(p.overlay!=Player::Overlay::None) {
         if(!tap) return;
         if(x>=512 && x<=616 && y>=289 && y<=311) p.input(Key::Back);
@@ -354,7 +372,7 @@ void Skin::touch(Player& p,const Input& e) {
         bool browse=p.view==View::Files;int n=browse?p.browserEntries().size():p.queue.size();
         (browse?p.fileRow:p.selected)=std::clamp((y-69)*n/185,0,std::max(0,n-1));
     } else if(y>=290 && y<=312 && x>=383 && x<=445) p.view=View::Playlist;
-    else if(y>=290 && y<=312 && x>=448 && x<=495) {if(p.favoritesView) p.loadFolder(p.folder);p.view=View::Files;}
+    else if(y>=290 && y<=312 && x>=448 && x<=495) {if(p.favoritesView || p.libraryView) p.loadFolder(p.folder);p.view=View::Files;}
     else if(y>=290 && y<=312 && x>=498 && x<=553) p.openMenu();
     else if(y>=290 && y<=312 && x>=556 && x<=623) p.enter();
 }

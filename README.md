@@ -45,6 +45,10 @@ Open **MIX** with **−** or touch and scroll down to the playback tools. Tap **
 - **Now playing details** displays embedded JPEG artwork, title, artist, album, codec, sample rate and playback time when available.
 - **Full-screen visualizer** shows the spectrum analyzer or oscilloscope. Switch modes with **A** or **CHANGE MODE** and return with **B**.
 
+## Search the music library
+
+Choose **MIX → Search music library**. Up/down selects a character, right adds it, left deletes it, and A starts searching. The search covers the music folder and its subfolders. It matches filenames and available title, artist and album tags. An empty query lists all tracks. Press A on a result to play the matching list, or open MIX to queue a track or add it to favorites.
+
 ## Audio
 
 | Format | Supported files |
