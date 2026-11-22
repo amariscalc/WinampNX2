@@ -30,6 +30,7 @@ void Player::play(int index,bool startPaused,bool keepPriority) {
     if(index<0 || index>=int(queue.size())) return;
     if(!keepPriority) nextCount=0;
     stop(); selected=index; notice.clear();
+    historyRecorded=false;
     try {
         auto next=std::make_unique<Decoder>();
         next->open(queue[index].path);
@@ -61,6 +62,9 @@ void Player::seek(double seconds) {
     if(!paused) device.pause(false);
 }
 void Player::tick() {
+    if(sleepDeadline!=Clock::time_point{} && Clock::now()>=sleepDeadline) {
+        sleepDeadline={};stop();notice="Sleep timer ended";return;
+    }
     if(!audio || paused) return;
     while(!ended && device.canQueue()) {
         std::array<int16_t,blockFrames*2> pcm{};
@@ -71,11 +75,14 @@ void Player::tick() {
                 offset=0;
             }
             int count=std::min<size_t>((decoded.size()-offset)/2,blockFrames-filled);
-            eq.render(decoded.data()+offset,count,pcm.data()+2*filled);
+            const double gain=gainMode==1?audio->trackGain:gainMode==2?audio->albumGain:1.;
+            eq.render(decoded.data()+offset,count,pcm.data()+2*filled,gain);
             offset+=2*count; filled+=count;
         }
         if(filled) {
-            device.submit(pcm.data(),filled); submitted+=double(filled)/Decoder::rate;
+            device.submit(pcm.data(),filled);
+            if(!historyRecorded) rememberTrack();
+            submitted+=double(filled)/Decoder::rate;
             for(size_t i=0;i<wave.size();i++) {
                 const int sample=int(i)*filled/int(wave.size());
                 wave[i]=(pcm[2*sample]+pcm[2*sample+1])/65536.f;
@@ -85,12 +92,16 @@ void Player::tick() {
         }
     }
     int queued=device.queued(); position=std::max(0.,submitted-queued/double(Decoder::rate));
-    if(!queued && ended) step(1,true);
+    if(!queued && ended) {
+        if(sleepAtEnd) {sleepAtEnd=false;stop();notice="Sleep timer ended";}
+        else step(1,true);
+    }
 }
 void Player::chooseFile() {
     if(favoritesView || libraryView) {
         const auto& entries=browserEntries();
         if(fileRow<0 || fileRow>=int(entries.size())) return;
+        if(libraryView && grouping>=0) {openLibraryGroup(entries[fileRow].name);return;}
         queue=entries;mixPath.clear();queueName=libraryView?"LIBRARY":"FAVORITES";nextCount=0;
         favoritesView=false;libraryView=false;view=View::Playlist;
         const int index=fileRow;fileRow=0;play(index);return;
@@ -196,6 +207,14 @@ std::string Player::menuLabel(MixAction action) const {
         case Favorites:return "Browse favorites";
         case Presets:return "Equalizer presets";
         case TrackInfo:return "Now playing details";
+        case Artists:return "Browse artists";
+        case Albums:return "Browse albums";
+        case Genres:return "Browse genres";
+        case Recent:return "Recently added";
+        case History:return "Listening history";
+        case RefreshLibrary:return "Refresh library index";
+        case ReplayGain:return "ReplayGain";
+        case Sleep:return "Sleep timer";
         case Library:return "Search music library";
         case Visualizer:return "Full-screen visualizer";
         case OpenSaved:return "Open saved mixes";
@@ -227,12 +246,15 @@ void Player::mixAction(MixAction action) {
             case Rename: case MoveUp: case MoveDown: case RemoveTrack: editMix(action);break;
             case PlayNext: case QueueLast: {
                 const auto* track=highlightedTrack();
-                if(!track) {notice="Select a track";break;}
-                Entry copy=*track;
+                std::vector<Entry> additions;
+                if(track) additions.push_back(*track);
+                else if(view==View::Files && libraryView && grouping>=0 && fileRow<int(libraryResults.size()))
+                    additions=libraryGroupTracks(libraryResults[fileRow].name);
+                if(additions.empty()) {notice="Select a track or group";break;}
                 int index=action==PlayNext && current>=0?current+1+nextCount:int(queue.size());
-                queue.insert(queue.begin()+index,std::move(copy));
-                if(selected>=index && queue.size()>1) ++selected;
-                if(action==PlayNext && current>=0) ++nextCount;
+                if(!queue.empty() && selected>=index) selected+=int(additions.size());
+                queue.insert(queue.begin()+index,additions.begin(),additions.end());
+                if(action==PlayNext && current>=0) nextCount+=int(additions.size());
                 mixPath.clear();hasSession=true;
                 notice=action==PlayNext?"Queued to play next":"Added to end of queue";
                 break;
@@ -250,6 +272,11 @@ void Player::mixAction(MixAction action) {
                 if(favoritesView) fileRow=std::clamp(fileRow,0,std::max(0,int(favorites.size())-1));
                 notice=adding?"Favorite added":"Favorite removed";break;
             }
+            case Artists:case Albums:case Genres:case Recent:case History: browseLibrary(action);break;
+            case RefreshLibrary: refreshLibrary();notice=std::to_string(libraryIndex.size())+" tracks indexed";break;
+            case ReplayGain:case Sleep:
+                optionRow=action==ReplayGain?gainMode:3;
+                overlay=Overlay::PlaybackOptions;break;
             case Library: overlay=Overlay::Search;break;
             case Favorites: libraryView=false;favoritesView=true;view=View::Files;fileRow=0;notice.clear();break;
             case Presets: overlay=Overlay::Presets;presetRow=0;break;
@@ -276,6 +303,11 @@ void Player::input(Key key) {
     if(overlay==Overlay::Search) {searchKey(key);return;}
     if(overlay!=Overlay::None) {
         if(key==Key::Back || key==Key::Mix) overlay=Overlay::None;
+        else if(overlay==Overlay::PlaybackOptions) {
+            if(key==Key::Up) optionRow=std::max(0,optionRow-1);
+            if(key==Key::Down) optionRow=std::min(7,optionRow+1);
+            if(key==Key::Accept) playbackOption(optionRow);
+        }
         else if(overlay==Overlay::Presets) {
             if(key==Key::Up) presetRow=std::max(0,presetRow-1);
             if(key==Key::Down) presetRow=std::min(4,presetRow+1);

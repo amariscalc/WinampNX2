@@ -236,6 +236,15 @@ void listing(Canvas& c,const Player& p) {
 }
 void fullScreen(Canvas& c,const Player& p) {
     using Overlay=Player::Overlay;
+    if(p.overlay==Overlay::PlaybackOptions) {
+        c.panel(8,10,624,314);c.title(14,15,612,"PLAYBACK OPTIONS");
+        for(int i=0;i<8;i++) {
+            c.box(25,48+i*29,590,26,i==p.optionRow?0x252a71:well);
+            c.text(37,53+i*29,p.playbackOptionLabel(i),paper,body);
+        }
+        c.button(512,289,104,22,"BACK");
+        return;
+    }
     if(p.overlay==Overlay::Search) {
         c.panel(8,10,624,314);c.title(14,15,612,"SEARCH MUSIC LIBRARY");
         c.inset(25,50,590,36);
@@ -308,7 +317,7 @@ void Skin::draw(const Player& p) {
         "A  Play / pause     X  Files     Y  EQ     L/R  Track";
     if(p.menu) guide="D-PAD  Select      A  Choose      B  Close";
     c.text(13,339,guide,0xc1c1ca);
-    c.text(466,339,"WinampNX2 0.6.0 / by amariscalc",gold,small);
+    c.text(466,339,"WinampNX2 0.7.0 / by amariscalc",gold,small);
 }
 void Skin::touch(Player& p,const Input& e) {
     int x=e.x,y=e.y;bool tap=e.key==Key::Tap;
@@ -322,6 +331,8 @@ void Skin::touch(Player& p,const Input& e) {
     if(p.overlay!=Player::Overlay::None) {
         if(!tap) return;
         if(x>=512 && x<=616 && y>=289 && y<=311) p.input(Key::Back);
+        else if(p.overlay==Player::Overlay::PlaybackOptions && x>=25 && x<615 && y>=48 && y<280)
+            p.playbackOption((y-48)/29);
         else if(p.overlay==Player::Overlay::Presets && x>=25 && x<607 && y>=49 && y<244)
             p.applyPreset((y-49)/39);
         else if(x>=25 && x<=163 && y>=289 && y<=311) p.input(Key::Accept);

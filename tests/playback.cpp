@@ -149,8 +149,46 @@ static void checkLibrary(Platform& device,const std::string& folder) {
     assert(player.browserEntries().empty());
     player.enter();
     assert(player.audio && player.audio->album=="Covers");
+    assert(std::abs(player.audio->trackGain-0.501187)<0.0001);
+    assert(std::abs(player.audio->albumGain-0.707946)<0.0001);
     player.input(Key::Back);
     assert(!player.libraryView && player.view==View::Playlist);
+}
+static void checkLibraryIndex(Platform& device,const std::string& folder) {
+    namespace fs=std::filesystem;
+    auto settings=(fs::path(folder)/"Albums").string();
+    Player player(device,folder,folder);
+    player.loadExtras(settings);
+    player.refreshLibrary();
+    assert(player.indexReady && fs::exists(fs::path(settings)/"library-index.txt"));
+    player.browseLibrary(Player::Albums);
+    auto album=std::find_if(player.libraryResults.begin(),player.libraryResults.end(),
+        [](const Entry& e){return e.name.find("Covers / ")==0;});
+    assert(album!=player.libraryResults.end());
+    player.fileRow=int(album-player.libraryResults.begin());
+    player.mixAction(Player::QueueLast);
+    assert(player.queue.back().name=="art");
+    player.chooseFile();
+    player.enter();
+    assert(player.audio && player.audio->album=="Covers");
+    assert(std::abs(player.audio->trackGain-0.501187)<0.0001);
+    assert(std::abs(player.audio->albumGain-0.707946)<0.0001);
+    player.tick();
+    assert(player.history.front().name=="art");
+    player.saveHistory();
+    player.sleepDeadline=Player::Clock::now();
+    player.tick();
+    assert(!player.audio);
+    Player restored(device,folder,folder);
+    restored.loadExtras(settings);
+    restored.loadLibraryState();
+    assert(restored.indexReady && restored.history.front().name=="art");
+    restored.browseLibrary(Player::Recent);
+    assert(!restored.libraryResults.empty());
+    restored.playbackOption(2);
+    assert(restored.gainMode==2);
+    restored.playbackOption(7);
+    assert(restored.sleepAtEnd);
 }
 // Run with the fixtures created by check-audio.sh.
 int main(int argc,char** argv) {
@@ -195,5 +233,6 @@ int main(int argc,char** argv) {
     checkResume(device,folder);
     checkExtras(device,folder);
     checkLibrary(device,folder);
+    checkLibraryIndex(device,folder);
     std::cout<<"PCM equality, pause, seek, EQ, folder navigation and end-of-track transitions passed.\n";
 }

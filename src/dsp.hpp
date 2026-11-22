@@ -29,8 +29,8 @@ struct Equalizer {
                         -2*std::cos(w)/den,(1-alpha/a)/den};
         }
     }
-    void render(const float* data,int frames,int16_t* out) {
-        double scale=volume/100.0*(on ? std::pow(10.,preamp/20.) : 1.);
+    void render(const float* data,int frames,int16_t* out,double replayGain=1.) {
+        double scale=replayGain*volume/100.0*(on ? std::pow(10.,preamp/20.) : 1.);
         double level[2]={scale*(1-std::max(0,balance)/100.),scale*(1+std::min(0,balance)/100.)};
         for (int f=0;f<frames;f++) for(int c=0;c<2;c++) {
             double x=data[f*2+c];

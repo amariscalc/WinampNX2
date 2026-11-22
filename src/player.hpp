@@ -4,6 +4,8 @@
 #include "dsp.hpp"
 #include "platform.hpp"
 #include <memory>
+#include <chrono>
+#include <ctime>
 #include <random>
 
 enum class View {Playlist,Files,Eq};
@@ -19,16 +21,40 @@ struct Player {
     static constexpr const char* alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_";
     void nameKey(Key key);
     void editMix(int action);
-    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, Rename, MoveUp, MoveDown, RemoveTrack, PlayNext, QueueLast, Favorite, Favorites, Presets, TrackInfo, Visualizer, Library, ActionCount};
+    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, Rename, MoveUp, MoveDown, RemoveTrack, PlayNext, QueueLast, Favorite, Favorites, Presets, TrackInfo, Visualizer, Library, Artists, Albums, Genres, Recent, History, RefreshLibrary, ReplayGain, Sleep, ActionCount};
     static constexpr int menuVisible=9;
     int menuTop() const {return std::max(0,menuRow-menuVisible+1);}
-    enum class Overlay {None, Presets, Info, Spectrum, Wave, Search};
+    enum class Overlay {None, Presets, Info, Spectrum, Wave, Search, PlaybackOptions};
     Overlay overlay=Overlay::None;
     bool favoritesView=false, libraryView=false;
     std::vector<Entry> libraryResults;
     std::string searchQuery;
     int searchCharacter=0;
+    struct LibraryTrack {
+        Entry entry;
+        std::string title, artist, album, genre;
+        int disc=0, number=0;
+        std::time_t added=0;
+    };
+    std::vector<LibraryTrack> libraryIndex;
+    std::vector<Entry> history;
+    bool indexReady=false, historyDirty=false, historyRecorded=false;
+    int grouping=-1;
+    void loadLibraryState();
+    void saveHistory() const;
+    void refreshLibrary();
+    void browseLibrary(int mode);
+    std::vector<Entry> libraryGroupTracks(const std::string& label) const;
+    void openLibraryGroup(const std::string& label);
     void searchLibrary();
+    void showLibraryResults(std::vector<Entry> results,int group=-1);
+    void rememberTrack();
+    using Clock=std::chrono::steady_clock;
+    Clock::time_point sleepDeadline{};
+    bool sleepAtEnd=false;
+    int gainMode=0, optionRow=0;
+    void playbackOption(int row);
+    std::string playbackOptionLabel(int row) const;
     void searchKey(Key key);
     std::vector<Entry> favorites;
     std::array<float,256> wave{};

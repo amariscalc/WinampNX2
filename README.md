@@ -51,6 +51,14 @@ Open **MIX** with **−** or touch and scroll down to the playback tools. Tap **
 
 Choose **MIX → Search music library**. Up/down selects a character, right adds it, left deletes it, and A starts searching. The search covers the music folder and its subfolders. It matches filenames and available title, artist and album tags. An empty query lists all tracks. Press A on a result to play the matching list, or open MIX to queue a track or add it to favorites.
 
+## Library and playback in v0.7.0
+
+- Open MIX and choose **Browse artists**, **Browse albums** or **Browse genres**. Press **A** to open a group. Use **Play next** or **Add to end of queue** while highlighting a group to queue it in disc and track order.
+- The first search or browse builds a reusable index on the SD. Choose **Refresh library index** after adding files or changing tags. **Recently added** uses file dates for the initial scan and discovery dates on later refreshes.
+- **Listening history** shows the last 100 distinct tracks played and is saved on normal exit.
+- **ReplayGain** offers Off, Track and Album modes for tagged files. Album mode falls back to track gain if the album tag is missing.
+- **Sleep timer** stops playback after 15, 30 or 60 minutes, or at the end of the current track. Cancel it from the same menu.
+
 ## Audio
 
 | Format | Supported files |

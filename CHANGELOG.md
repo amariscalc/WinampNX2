@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.0
+
+- Browse and queue indexed music by artist, album or genre, in disc and track order within each album.
+- Save the library index on the SD card and refresh it from MIX.
+- Revisit recently added tracks or the listening history.
+- Apply track or album ReplayGain to tagged files.
+- Stop playback with a 15, 30 or 60 minute timer or at the end of the track.
+
 ## [0.6.0](https://github.com/amariscalc/WinampNX2/releases/tag/v0.6.0)
 
 - Search the SD card's `/music` folder and subfolders by filename, title, artist or album.

@@ -1,6 +1,9 @@
 #include "decoder.hpp"
 #include <algorithm>
 #include <cmath>
+#include <cstdlib>
+#include <cstring>
+#include <libavutil/replaygain.h>
 #include <stdexcept>
 extern "C" {
 #include <libavutil/opt.h>
@@ -52,6 +55,34 @@ void Decoder::open(const std::string& path) {
         return entry ? entry->value : "";
     };
     title = tag("title"); artist = tag("artist"); album = tag("album");
+    genre=tag("genre");
+    auto number=[](const std::string& text) {return int(std::clamp(std::strtol(text.c_str(),nullptr,10),0L,9999L));};
+    discNumber=number(tag("disc"));trackNumber=number(tag("track"));
+    double trackDb=NAN,albumDb=NAN,trackPeak=0.,albumPeak=0.;
+    const auto* side=av_packet_side_data_get(track->codecpar->coded_side_data,track->codecpar->nb_coded_side_data,AV_PKT_DATA_REPLAYGAIN);
+    if(side && side->size>=sizeof(AVReplayGain)) {
+        AVReplayGain gain{};
+        std::memcpy(&gain,side->data,sizeof gain);
+        if(gain.track_gain!=INT32_MIN) trackDb=gain.track_gain/100000.;
+        if(gain.album_gain!=INT32_MIN) albumDb=gain.album_gain/100000.;
+        trackPeak=gain.track_peak/100000.;albumPeak=gain.album_peak/100000.;
+    }
+    auto readValue=[](const std::string& value,double fallback) {
+        char* end=nullptr;
+        double result=std::strtod(value.c_str(),&end);
+        return end!=value.c_str() && std::isfinite(result)?result:fallback;
+    };
+    trackDb=readValue(tag("replaygain_track_gain"),trackDb);
+    albumDb=readValue(tag("replaygain_album_gain"),albumDb);
+    trackPeak=readValue(tag("replaygain_track_peak"),trackPeak);
+    albumPeak=readValue(tag("replaygain_album_peak"),albumPeak);
+    auto scale=[](double db,double peak) {
+        if(!std::isfinite(db)) return 1.;
+        double gain=std::pow(10.,std::clamp(db,-40.,24.)/20.);
+        return peak>0?std::min(gain,1./peak):gain;
+    };
+    trackGain=scale(trackDb,trackPeak);
+    albumGain=std::isfinite(albumDb)?scale(albumDb,albumPeak):trackGain;
     cover.clear();
     AVChannelLayout stereo = AV_CHANNEL_LAYOUT_STEREO;
     check(swr_alloc_set_opts2(&converter,&stereo,AV_SAMPLE_FMT_FLT,rate,&codec->ch_layout,

@@ -33,7 +33,7 @@ int main(int argc,char** argv) {
         std::string sessionDir=capturing?"":dir;
         if(capturing) player.play(0);
 #endif
-        if(!sessionDir.empty()) {player.loadExtras(sessionDir);restoreSession(player,sessionDir); }
+        if(!sessionDir.empty()) {player.loadExtras(sessionDir);player.loadLibraryState();restoreSession(player,sessionDir); }
         auto skin=std::make_unique<Skin>();
         bool run=true;
         while(run) {
@@ -64,6 +64,7 @@ int main(int argc,char** argv) {
 #endif
         }
         if(!sessionDir.empty()) saveSession(player,sessionDir);
+        player.saveHistory();
     } catch(const std::exception& e) {
         std::fprintf(stderr,"WinampNX2: %s\n",e.what());
 #ifdef __SWITCH2__
