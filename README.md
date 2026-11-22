@@ -4,6 +4,8 @@ A local music player for Nintendo Switch 2 by [amariscalc](https://github.com/am
 
 ![WinampNX2 playing a FLAC file](docs/player.png)
 
+[Downloads](https://github.com/amariscalc/WinampNX2/releases/latest) · [Changelog](CHANGELOG.md)
+
 ## Install
 
 1. Download [WinampNX2.nro](dist/WinampNX2.nro) and copy it to `/switch/WinampNX2/WinampNX2.nro` on the SD card. To update, replace the existing NRO.
@@ -103,6 +105,8 @@ bash tests/check-audio.sh
 ```
 
 The original console tests on v0.1.0 covered MP3, FLAC (16-bit/48 kHz and 24-bit/96 kHz), ALAC and Opus, automatic track changes, pause/resume and seeking. Creating, saving and reopening an M3U8 mix from the SD card has also been tested on a physical Nintendo Switch 2 with v0.2.0. On a physical Nintendo Switch 2, v0.3.0 restored the mix, track and playback position after exiting with + and reopening from hbmenu. Playback resumed from pause with A. The v0.4.0 saved-mix editor has also been tested on a physical Nintendo Switch 2. Screenshots use the shared renderer. To capture the player, browser and mix menu, run the desktop build with `/path/to/music --capture preview`.
+
+The Nintendo Switch 2 hardware checks for v0.5.0 covered favorites, EQ presets and adding tracks to the end of the queue. Library search in v0.6.0 was also confirmed on the console.
 
 ## Credits
 
