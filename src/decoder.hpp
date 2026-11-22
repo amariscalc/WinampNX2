@@ -23,7 +23,10 @@ public:
     static constexpr int rate = 48000;
     int sourceRate = 0, bits = 0, channels = 0, kbps = 0;
     double duration = 0;
-    std::string format, title, artist;
+    std::string format, title, artist, album;
+    static constexpr int coverSide=128;
+    std::vector<uint32_t> cover;
+    void loadCover();
     Decoder() = default;
     Decoder(const Decoder&) = delete;
     ~Decoder() {close();}

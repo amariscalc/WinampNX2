@@ -16,12 +16,12 @@ export PATH="$DEVKITPRO/devkitA64/bin:$PATH"
 ./configure --prefix="$prefix" --target-os=none --arch=aarch64 --cpu=cortex-a78c \
   --cross-prefix=aarch64-none-elf- --enable-cross-compile --disable-everything \
   --disable-programs --disable-doc --disable-debug --disable-network --disable-autodetect \
-  --disable-avdevice --disable-avfilter --disable-swscale --disable-postproc --disable-pthreads \
+  --disable-avdevice --disable-avfilter --enable-swscale --disable-postproc --disable-pthreads \
   --disable-w32threads --disable-os2threads --enable-pic --enable-static --disable-shared \
   --extra-cflags="-D__SWITCH__ -D__SWITCH2__ -D_GNU_SOURCE -fPIC -mtp=soft -ftls-model=local-exec -I$DEVKITPRO/libounce/include" \
   --extra-ldflags="-mtp=soft -fPIE -specs=$DEVKITPRO/libounce/switch.specs -L$DEVKITPRO/libounce/lib" --extra-libs="-lnx -lm" \
   --enable-protocol=file --enable-demuxer=aac,aiff,ape,asf,caf,flac,matroska,mov,mp3,ogg,wav,wv \
   --enable-parser=aac,aac_latm,flac,mpegaudio,opus,vorbis \
-  --enable-decoder='aac,aac_latm,alac,ape,flac,mp3,opus,vorbis,wavpack,wmalossless,wmav1,wmav2,pcm_*'
+  --enable-decoder='aac,aac_latm,alac,ape,flac,mjpeg,mp3,opus,vorbis,wavpack,wmalossless,wmav1,wmav2,pcm_*'
 make -j"${JOBS:-4}"
 make install

@@ -35,6 +35,16 @@ Open a saved M3U8 from the Playlists folder and highlight a track in the playlis
 
 Choose **Rename mix** to enter a new name. Up/down selects a letter, right appends it, left deletes it, A saves and B cancels. The touch buttons perform the same actions.
 
+## Playback tools in v0.5.0
+
+Open **MIX** with **−** or touch and scroll down to the playback tools. Tap **MORE** to page the menu on the touchscreen. Tap the menu title to go back a page.
+
+- **Play next** queues highlighted tracks immediately after the current one in the order added, including during shuffle. **Add to end of queue** appends to the current playback queue. Use **Save current playlist** to keep the new order as a separate mix.
+- **Add favorite** and **Remove favorite** update the saved favorites list on the SD. Use **Browse favorites** to play it or queue individual tracks.
+- **Equalizer presets** includes Flat (bypass), Rock and Hip-Hop, plus one custom preset you can save and load.
+- **Now playing details** displays embedded JPEG artwork, title, artist, album, codec, sample rate and playback time when available.
+- **Full-screen visualizer** shows the spectrum analyzer or oscilloscope. Switch modes with **A** or **CHANGE MODE** and return with **B**.
+
 ## Audio
 
 | Format | Supported files |
@@ -80,7 +90,7 @@ sha256sum build/WinampNX2.nro
 
 The first build fetches and verifies FFmpeg 7.1.5. To use a local copy, place the source archive at `build/vendor/ffmpeg-7.1.5.tar.xz` first. See the [codec build script](scripts/build-codecs.sh) and the [packaged binary checksum](dist/SHA256SUMS).
 
-The desktop build uses C++17, pkg-config, SDL2 and FFmpeg 7 development libraries (avformat, avcodec, swresample and avutil). Tests also use the FFmpeg command-line encoder.
+The desktop build uses C++17, pkg-config, SDL2 and FFmpeg 7 development libraries (avformat, avcodec, swresample, swscale and avutil). Tests also use the FFmpeg command-line encoder.
 
 ```sh
 make desktop

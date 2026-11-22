@@ -19,15 +19,16 @@ void Player::loadFolder(std::string path) {
         if(parent.size()<root.size()) parent=root;
         fresh.insert(fresh.begin(),{parent,"..","",true});
     }
-    files=std::move(fresh); folder=path; fileRow=0; notice.clear();
+    favoritesView=false;files=std::move(fresh); folder=path; fileRow=0; notice.clear();
 }
 void Player::stop() {
     device.clearAudio(); audio.reset(); decoded.clear(); offset=0;
-    current=-1; position=submitted=0; paused=ended=false; bars.fill(0);
+    current=-1; position=submitted=0; paused=ended=false; bars.fill(0);wave.fill(0);
 }
 void Player::fail(const std::string& message) {stop(); notice=message;}
-void Player::play(int index,bool startPaused) {
+void Player::play(int index,bool startPaused,bool keepPriority) {
     if(index<0 || index>=int(queue.size())) return;
+    if(!keepPriority) nextCount=0;
     stop(); selected=index; notice.clear();
     try {
         auto next=std::make_unique<Decoder>();
@@ -46,16 +47,17 @@ void Player::step(int delta,bool automatic) {
     int n=queue.size();
     if(!n) return;
     int next=current<0 ? selected : current+delta;
-    if(shuffle && current>=0 && n>1) next=(current+std::uniform_int_distribution<int>(1,n-1)(rng))%n;
+    if(delta>0 && current>=0 && nextCount>0) --nextCount;
+    else if(shuffle && current>=0 && n>1) next=(current+std::uniform_int_distribution<int>(1,n-1)(rng))%n;
     if(automatic && next>=n && !repeat) {stop();return;}
-    play((next%n+n)%n);
+    play((next%n+n)%n,false,delta>0);
 }
 void Player::seek(double seconds) {
     if(!audio || audio->duration<=0) return;
     seconds=std::clamp(seconds,0.,std::max(0.,audio->duration-.02));
     if(!audio->seek(seconds)) {notice="Seeking unavailable";return;}
     device.clearAudio(); decoded.clear(); offset=0; ended=false;
-    eq.rebuild(); position=submitted=seconds; bars.fill(0);
+    eq.rebuild(); position=submitted=seconds; bars.fill(0);wave.fill(0);
     if(!paused) device.pause(false);
 }
 void Player::tick() {
@@ -74,6 +76,10 @@ void Player::tick() {
         }
         if(filled) {
             device.submit(pcm.data(),filled); submitted+=double(filled)/Decoder::rate;
+            for(size_t i=0;i<wave.size();i++) {
+                const int sample=int(i)*filled/int(wave.size());
+                wave[i]=(pcm[2*sample]+pcm[2*sample+1])/65536.f;
+            }
             auto newBars=spectrum(pcm.data(),filled);
             for(size_t i=0;i<bars.size();i++) bars[i]=std::max(newBars[i],bars[i]*.86f);
         }
@@ -82,21 +88,27 @@ void Player::tick() {
     if(!queued && ended) step(1,true);
 }
 void Player::chooseFile() {
-    if(files.empty()) return;
+    if(favoritesView) {
+        if(fileRow<0 || fileRow>=int(favorites.size())) return;
+        queue=favorites;mixPath.clear();queueName="FAVORITES";nextCount=0;
+        favoritesView=false;view=View::Playlist;
+        const int index=fileRow;fileRow=0;play(index);return;
+    }
+    if(fileRow<0 || fileRow>=int(files.size())) return;
     auto chosen=files[fileRow];
     if(chosen.directory) {loadFolder(chosen.path);return;}
     if(chosen.playlist()) {
         try {
             auto loaded=readMix(root,chosen.path);
             if(loaded.tracks.empty()) {notice="No playable tracks in this list";return;}
-            queue=std::move(loaded.tracks);
+            nextCount=0;queue=std::move(loaded.tracks);
             mixPath=loaded.skipped?std::string():chosen.path;queueName=chosen.name; view=View::Playlist;
             play(0);
             if(audio && loaded.skipped) notice="Skipped "+std::to_string(loaded.skipped)+" unavailable";
         } catch(const std::exception& error) {notice=error.what();}
         return;
     }
-    mixPath.clear();queue.clear();queueName="LOCAL PLAYLIST";
+    nextCount=0;mixPath.clear();queue.clear();queueName="LOCAL PLAYLIST";
     for(auto& f:files) if(f.track()) queue.push_back(f);
     auto it=std::find_if(queue.begin(),queue.end(),[&](const Entry& e){return e.path==chosen.path;});
     view=View::Playlist; play(int(it-queue.begin()));
@@ -177,6 +189,13 @@ std::string Player::menuLabel(MixAction action) const {
         case MoveUp:return "Move track up";
         case MoveDown:return "Move track down";
         case RemoveTrack:return "Remove from mix";
+        case PlayNext:return "Play next";
+        case QueueLast:return "Add to end of queue";
+        case Favorite:return highlightedTrack() && isFavorite(*highlightedTrack())?"Remove favorite":"Add favorite";
+        case Favorites:return "Browse favorites";
+        case Presets:return "Equalizer presets";
+        case TrackInfo:return "Now playing details";
+        case Visualizer:return "Full-screen visualizer";
         case OpenSaved:return "Open saved mixes";
         default:return {};
     }
@@ -186,12 +205,11 @@ void Player::mixAction(MixAction action) {
     try {
         switch(action) {
             case Add: {
-                const auto& items=view==View::Files?files:queue;
-                int index=view==View::Files?fileRow:selected;
-                if(index<0 || index>=int(items.size()) || !items[index].track()) {
+                const auto* track=highlightedTrack();
+                if(!track) {
                     notice="Select a track to add";break;
                 }
-                draft.push_back(items[index]);
+                draft.push_back(*track);
                 notice="Added to mix ("+std::to_string(draft.size())+")";break;
             }
             case Undo:
@@ -205,6 +223,35 @@ void Player::mixAction(MixAction action) {
                 notice="Saved "+name;break;
             }
             case Rename: case MoveUp: case MoveDown: case RemoveTrack: editMix(action);break;
+            case PlayNext: case QueueLast: {
+                const auto* track=highlightedTrack();
+                if(!track) {notice="Select a track";break;}
+                Entry copy=*track;
+                int index=action==PlayNext && current>=0?current+1+nextCount:int(queue.size());
+                queue.insert(queue.begin()+index,std::move(copy));
+                if(selected>=index && queue.size()>1) ++selected;
+                if(action==PlayNext && current>=0) ++nextCount;
+                mixPath.clear();hasSession=true;
+                notice=action==PlayNext?"Queued to play next":"Added to end of queue";
+                break;
+            }
+            case Favorite: {
+                const auto* track=highlightedTrack();
+                if(!track) {notice="Select a track";break;}
+                auto updated=favorites;
+                auto found=std::find_if(updated.begin(),updated.end(),[&](const Entry& e){return e.path==track->path;});
+                const bool adding=found==updated.end();
+                if(adding) updated.push_back(*track);
+                else updated.erase(found);
+                favorites.swap(updated);
+                try {saveExtras();} catch(...) {favorites.swap(updated);throw;}
+                if(favoritesView) fileRow=std::clamp(fileRow,0,std::max(0,int(favorites.size())-1));
+                notice=adding?"Favorite added":"Favorite removed";break;
+            }
+            case Favorites: favoritesView=true;view=View::Files;fileRow=0;notice.clear();break;
+            case Presets: overlay=Overlay::Presets;presetRow=0;break;
+            case TrackInfo: if(audio) audio->loadCover();overlay=Overlay::Info;break;
+            case Visualizer: overlay=Overlay::Spectrum;break;
             case OpenSaved:
                 loadFolder(mixDirectory(musicFolder));view=View::Files;break;
             default:break;
@@ -223,6 +270,17 @@ void Player::enter() {
     else play(selected);
 }
 void Player::input(Key key) {
+    if(overlay!=Overlay::None) {
+        if(key==Key::Back || key==Key::Mix) overlay=Overlay::None;
+        else if(overlay==Overlay::Presets) {
+            if(key==Key::Up) presetRow=std::max(0,presetRow-1);
+            if(key==Key::Down) presetRow=std::min(4,presetRow+1);
+            if(key==Key::Accept) applyPreset(presetRow);
+        } else if((overlay==Overlay::Spectrum || overlay==Overlay::Wave) &&
+                  (key==Key::Accept || key==Key::Left || key==Key::Right))
+            overlay=overlay==Overlay::Spectrum?Overlay::Wave:Overlay::Spectrum;
+        return;
+    }
     if(naming) {nameKey(key);return;}
     if(key==Key::Mix) {openMenu();return;}
     if(menu) {
@@ -233,17 +291,21 @@ void Player::input(Key key) {
         return;
     }
     switch(key) {
-        case Key::Browse: view=view==View::Files?View::Playlist:View::Files; break;
+        case Key::Browse:
+            if(favoritesView) loadFolder(folder);
+            else view=view==View::Files?View::Playlist:View::Files;
+            break;
         case Key::Eq: view=view==View::Eq?View::Playlist:View::Eq; break;
         case Key::Back:
-            if(view==View::Files && folder!=root && !files.empty()) loadFolder(files.front().path);
+            if(view==View::Files && favoritesView) {loadFolder(folder);view=View::Playlist;}
+            else if(view==View::Files && folder!=root && !files.empty()) loadFolder(files.front().path);
             else if(view!=View::Playlist) view=View::Playlist;
             else stop();
             break;
         case Key::Up: case Key::Down: {
             int delta=key==Key::Up?-1:1;
             if(view==View::Eq) setGain((band==0?eq.preamp:eq.gain[band-1])-delta);
-            else if(view==View::Files) fileRow=std::clamp(fileRow+delta,0,std::max(0,int(files.size())-1));
+            else if(view==View::Files) fileRow=std::clamp(fileRow+delta,0,std::max(0,int((favoritesView?favorites:files).size())-1));
             else selected=std::clamp(selected+delta,0,std::max(0,int(queue.size())-1));
             break;
         }

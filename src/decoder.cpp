@@ -4,6 +4,7 @@
 #include <stdexcept>
 extern "C" {
 #include <libavutil/opt.h>
+#include <libswscale/swscale.h>
 }
 static void check(int result, const char* action) {
     if (result >= 0) return;
@@ -50,7 +51,8 @@ void Decoder::open(const std::string& path) {
         if (!entry) entry = av_dict_get(file->metadata,key,nullptr,0);
         return entry ? entry->value : "";
     };
-    title = tag("title"); artist = tag("artist");
+    title = tag("title"); artist = tag("artist"); album = tag("album");
+    cover.clear();
     AVChannelLayout stereo = AV_CHANNEL_LAYOUT_STEREO;
     check(swr_alloc_set_opts2(&converter,&stereo,AV_SAMPLE_FMT_FLT,rate,&codec->ch_layout,
                               codec->sample_fmt,sourceRate,0,nullptr),"Configure PCM");
@@ -117,4 +119,42 @@ bool Decoder::seek(double seconds) {
     draining = false;
     discardBefore = seconds;
     return true;
+}
+
+void Decoder::loadCover() {
+    if(!file || !cover.empty()) return;
+    for(unsigned i=0;i<file->nb_streams;i++) {
+        auto* attachment=file->streams[i];
+        auto* params=attachment->codecpar;
+        if(!(attachment->disposition&AV_DISPOSITION_ATTACHED_PIC) || params->codec_id!=AV_CODEC_ID_MJPEG ||
+           attachment->attached_pic.size<=0 || attachment->attached_pic.size>8*1024*1024) continue;
+        const auto* decoder=avcodec_find_decoder(params->codec_id);
+        if(!decoder) return;
+        AVCodecContext* image=avcodec_alloc_context3(decoder);
+        AVFrame* picture=av_frame_alloc();
+        if(image) image->max_pixels=4096*4096;
+        if(image && picture && avcodec_parameters_to_context(image,params)>=0 &&
+           avcodec_open2(image,decoder,nullptr)>=0 && avcodec_send_packet(image,&attachment->attached_pic)>=0 &&
+           avcodec_receive_frame(image,picture)>=0 && picture->width>0 && picture->height>0) {
+            int w=std::max(1,coverSide*picture->width/std::max(picture->width,picture->height));
+            int h=std::max(1,coverSide*picture->height/std::max(picture->width,picture->height));
+            auto* scale=sws_getContext(picture->width,picture->height,AVPixelFormat(picture->format),
+                                       w,h,AV_PIX_FMT_BGRA,SWS_BILINEAR,nullptr,nullptr,nullptr);
+            if(scale) {
+                cover.assign(coverSide*coverSide,0xff101218);
+                constexpr int paddedSide=coverSide+16;
+                std::vector<uint32_t> scaled(paddedSide*(coverSide+1));
+                uint8_t* dest[]={reinterpret_cast<uint8_t*>(scaled.data()),nullptr,nullptr,nullptr};
+                int stride[]={paddedSide*4,0,0,0};
+                if(sws_scale(scale,picture->data,picture->linesize,0,picture->height,dest,stride)==h) {
+                    for(int y=0;y<h;y++)
+                        std::copy_n(scaled.data()+y*paddedSide,w,cover.data()+((coverSide-h)/2+y)*coverSide+(coverSide-w)/2);
+                } else cover.clear();
+                sws_freeContext(scale);
+            }
+        }
+        av_frame_free(&picture);
+        avcodec_free_context(&image);
+        if(!cover.empty()) return;
+    }
 }

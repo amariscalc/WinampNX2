@@ -2,8 +2,8 @@
 SOURCES := $(wildcard src/*.cpp)
 HEADERS := $(wildcard src/*.hpp src/*.inc)
 WARN := -Wall -Wextra -Wpedantic
-HOST_FLAGS = $(shell pkg-config --cflags sdl2 libavformat libavcodec libswresample libavutil)
-HOST_LIBS = $(shell pkg-config --libs sdl2 libavformat libavcodec libswresample libavutil)
+HOST_FLAGS = $(shell pkg-config --cflags sdl2 libavformat libavcodec libswresample libswscale libavutil)
+HOST_LIBS = $(shell pkg-config --libs sdl2 libavformat libavcodec libswresample libswscale libavutil)
 CODECS := build/codecs
 NX := $(DEVKITPRO)/libounce
 A64 := $(DEVKITPRO)/devkitA64/bin/aarch64-none-elf
@@ -27,11 +27,11 @@ build/nx/%.o: src/%.cpp $(HEADERS) | $(CODECS)/lib/libavcodec.a
 -include $(NX_OBJ:.o=.d)
 
 build/WinampNX2.elf: $(NX_OBJ) $(CODECS)/lib/libavcodec.a
-	$(A64)-g++ $(NX_ARCH) -specs=$(NX)/switch.specs $(NX_OBJ) -L$(CODECS)/lib -L$(NX)/lib -Wl,--start-group -lavformat -lavcodec -lswresample -lavutil -lnx -lm -Wl,--end-group -o $@
+	$(A64)-g++ $(NX_ARCH) -specs=$(NX)/switch.specs $(NX_OBJ) -L$(CODECS)/lib -L$(NX)/lib -Wl,--start-group -lavformat -lavcodec -lswresample -lswscale -lavutil -lnx -lm -Wl,--end-group -o $@
 
 build/WinampNX2.nacp: Makefile
 	@mkdir -p build
-	$(DEVKITPRO)/tools/bin/nacptool --create WinampNX2 "amariscalc" 0.4.0 $@
+	$(DEVKITPRO)/tools/bin/nacptool --create WinampNX2 "amariscalc" 0.5.0 $@
 
 build/WinampNX2.nro: build/WinampNX2.elf build/WinampNX2.nacp assets/icon.jpg
 	$(DEVKITPRO)/tools/bin/elf2nro $< $@ --nacp=build/WinampNX2.nacp --icon=assets/icon.jpg

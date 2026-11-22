@@ -19,7 +19,26 @@ struct Player {
     static constexpr const char* alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_";
     void nameKey(Key key);
     void editMix(int action);
-    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, Rename, MoveUp, MoveDown, RemoveTrack, ActionCount};
+    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, Rename, MoveUp, MoveDown, RemoveTrack, PlayNext, QueueLast, Favorite, Favorites, Presets, TrackInfo, Visualizer, ActionCount};
+    static constexpr int menuVisible=9;
+    int menuTop() const {return std::max(0,menuRow-menuVisible+1);}
+    enum class Overlay {None, Presets, Info, Spectrum, Wave};
+    Overlay overlay=Overlay::None;
+    bool favoritesView=false;
+    std::vector<Entry> favorites;
+    std::array<float,256> wave{};
+    int presetRow=0, nextCount=0;
+    bool hasCustom=false;
+    int customPreamp=0;
+    std::array<int,10> customGain{};
+    std::string settingsDir;
+    void loadExtras(const std::string& directory);
+    void saveExtras() const;
+    const std::vector<Entry>& browserEntries() const {return favoritesView?favorites:files;}
+    void applyPreset(int row);
+    static const char* presetName(int row);
+    const Entry* highlightedTrack() const;
+    bool isFavorite(const Entry& track) const;
     void mixAction(MixAction action);
     void openMenu();
     std::string menuLabel(MixAction action) const;
@@ -31,7 +50,7 @@ struct Player {
     bool paused=false, shuffle=false, repeat=false;
     double position=0;
     explicit Player(Platform& device,std::string root,std::string folder);
-    void play(int index,bool startPaused=false);
+    void play(int index,bool startPaused=false,bool keepPriority=false);
     void toggle();
     void stop();
     void seek(double seconds);

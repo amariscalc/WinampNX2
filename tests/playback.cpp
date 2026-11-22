@@ -102,6 +102,34 @@ static void checkResume(Platform& device,const std::string& folder) {
     assert(!stopped.audio && stopped.queue.size()==2 && stopped.selected==1);
     std::cout<<"Session restore, duplicate entries, missing files, paused output and fallback passed.\n";
 }
+static void checkExtras(Platform& device,const std::string& folder) {
+    namespace fs=std::filesystem;
+    auto directory=fs::path(folder)/"Albums";
+    Player p(device,folder,folder);p.loadExtras(directory.string());
+    p.play(0);
+    p.view=View::Files;p.fileRow=rowFor(p,"wave");
+    p.mixAction(Player::Favorite);assert(p.favorites.size()==1);
+    p.mixAction(Player::PlayNext);
+    p.fileRow=rowFor(p,"flac");p.mixAction(Player::PlayNext);
+    p.fileRow=rowFor(p,"mp3");p.mixAction(Player::QueueLast);
+    assert(p.current==0 && p.queue[1].name=="wave" && p.queue[2].name=="flac" && p.queue.back().name=="mp3");
+    p.shuffle=true;p.step(1);assert(p.current==1);
+    p.step(1);assert(p.current==2);
+    p.mixAction(Player::Presets);p.applyPreset(2);
+    assert(p.eq.on && p.eq.gain[0]==5);
+    p.eq.gain[0]=7;p.applyPreset(4);p.stop();
+    Player restored(device,folder,folder);restored.loadExtras(directory.string());
+    assert(restored.favorites.size()==1);
+    restored.applyPreset(3);assert(restored.eq.gain[0]==7);
+    restored.mixAction(Player::Favorites);restored.enter();assert(restored.audio && restored.queue.size()==1);
+    restored.tick();restored.mixAction(Player::Visualizer);restored.input(Key::Accept);
+    assert(restored.overlay==Player::Overlay::Wave);
+    assert(std::any_of(restored.wave.begin(),restored.wave.end(),[](float v){return v!=0;}));
+    Skin skin;skin.draw(restored);
+    restored.input(Key::Back);restored.stop();
+    Decoder cover;cover.open((directory/"art.mp3").string());cover.loadCover();
+    assert(cover.album=="Covers" && cover.cover.size()==Decoder::coverSide*Decoder::coverSide);
+}
 // Run with the fixtures created by check-audio.sh.
 int main(int argc,char** argv) {
     assert(argc==2);
@@ -143,5 +171,6 @@ int main(int argc,char** argv) {
     p.stop();
     checkMixes(p,folder);p.stop();
     checkResume(device,folder);
+    checkExtras(device,folder);
     std::cout<<"PCM equality, pause, seek, EQ, folder navigation and end-of-track transitions passed.\n";
 }
