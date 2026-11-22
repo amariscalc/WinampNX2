@@ -52,7 +52,7 @@ std::vector<Entry> listMusic(const std::string& path) {
     return entries;
 }
 
-static std::string localTrackPath(const std::string& root,const std::string& list,std::string line) {
+static std::string relativeTrackPath(const std::string& root,const std::string& list,std::string line) {
     std::replace(line.begin(),line.end(),'\\','/');
     fs::path base=fs::path(list).parent_path().lexically_relative(root);
     if(line.rfind("sdmc:/",0)==0) line.erase(0,5);
@@ -61,7 +61,18 @@ static std::string localTrackPath(const std::string& root,const std::string& lis
     if(line.front()=='/') {base.clear();line.erase(0,1);}
     auto relative=(base/line).lexically_normal();
     if(relative.empty() || *relative.begin()=="..") return {};
-    return join(root,relative.generic_string());
+    return relative.generic_string();
+}
+
+std::optional<Entry> resolveAudioEntry(const std::string& root,const std::string& relative) {
+    fs::path path=fs::path(relative).lexically_normal();
+    if(path.empty() || path.is_absolute() || *path.begin()==".." ||
+       relative.find(':')!=std::string::npos || relative.find('\0')!=std::string::npos) return {};
+    auto full=join(root,path.generic_string());
+    auto track=entry(full,path.filename().string(),false);
+    struct stat st{};
+    if(!isAudio(track.ext) || stat(full.c_str(),&st)!=0 || !S_ISREG(st.st_mode)) return {};
+    return track;
 }
 
 LoadedMix readMix(const std::string& root,const std::string& file) {
@@ -75,11 +86,8 @@ LoadedMix readMix(const std::string& root,const std::string& file) {
         first=false;
         if(!line.empty() && line.back()=='\r') line.pop_back();
         if(line.empty() || line.front()=='#') continue;
-        auto path=localTrackPath(root,file,line);
-        auto track=entry(path,fs::path(path).filename().string(),false);
-        struct stat st{};
-        if(isAudio(track.ext) && stat(path.c_str(),&st)==0 && S_ISREG(st.st_mode))
-            result.tracks.push_back(std::move(track));
+        auto track=resolveAudioEntry(root,relativeTrackPath(root,file,line));
+        if(track) result.tracks.push_back(std::move(*track));
         else ++result.skipped;
     }
     if(in.bad()) throw std::runtime_error("Could not read entire playlist");

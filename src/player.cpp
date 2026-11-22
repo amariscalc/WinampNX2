@@ -23,19 +23,21 @@ void Player::stop() {
     current=-1; position=submitted=0; paused=ended=false; bars.fill(0);
 }
 void Player::fail(const std::string& message) {stop(); notice=message;}
-void Player::play(int index) {
+void Player::play(int index,bool startPaused) {
     if(index<0 || index>=int(queue.size())) return;
     stop(); selected=index; notice.clear();
     try {
         auto next=std::make_unique<Decoder>();
         next->open(queue[index].path);
-        device.pause(false);
+        paused=startPaused;
+        if(!paused) device.pause(false);
+        hasSession=true;
         audio=std::move(next); current=index; eq.rebuild();
     } catch(const std::exception& e) {fail(e.what());}
 }
 void Player::toggle() {
     if(!audio) {play(selected);return;}
-    device.pause(!paused); paused=!paused;
+    device.pause(!paused); paused=!paused;notice.clear();
 }
 void Player::step(int delta,bool automatic) {
     int n=queue.size();

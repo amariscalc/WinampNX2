@@ -11,7 +11,7 @@ struct Player {
     Platform& device;
     std::string root, folder, notice, queueName="LOCAL PLAYLIST", musicFolder;
     std::vector<Entry> queue,files,draft;
-    bool menu=false;
+    bool menu=false, hasSession=false;
     int menuRow=0;
     enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, ActionCount};
     void mixAction(MixAction action);
@@ -25,7 +25,7 @@ struct Player {
     bool paused=false, shuffle=false, repeat=false;
     double position=0;
     explicit Player(Platform& device,std::string root,std::string folder);
-    void play(int index);
+    void play(int index,bool startPaused=false);
     void toggle();
     void stop();
     void seek(double seconds);

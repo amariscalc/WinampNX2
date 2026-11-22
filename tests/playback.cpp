@@ -4,6 +4,7 @@
 #include <filesystem>
 #include <fstream>
 #include "skin.hpp"
+#include "session.hpp"
 #include <map>
 #include <set>
 #include <thread>
@@ -63,6 +64,37 @@ static void checkMixes(Player& p,const std::string& root) {
     std::cout<<"Mix creation, touch and controller actions, import, playback and save failures passed.\n";
 }
 
+static void checkResume(Platform& device,const std::string& folder) {
+    namespace fs=std::filesystem;
+    auto state=fs::path(folder)/".test-state";
+    Player first(device,folder,folder);
+    restoreSession(first,state.string());assert(!first.audio);
+    first.view=View::Files;first.fileRow=rowFor(first,"moved");first.enter();
+    first.fileRow=rowFor(first,"External");first.enter();
+    assert(first.queue.size()==3);
+    first.play(2);first.seek(1.25);
+    assert(!first.paused && first.current==2 && first.audio);
+    saveSession(first,state.string());first.stop();
+    Player second(device,folder,folder);
+    restoreSession(second,state.string());
+    assert(second.queueName=="External" && second.queue.size()==3 && second.current==2);
+    assert(second.paused && second.selected==2 && second.position==1.25 && device.queued()==0);
+    second.tick();assert(device.queued()==0 && second.position==1.25);
+    second.input(Key::Accept);second.tick();assert(!second.paused && device.queued()>0);
+    second.seek(.75);second.toggle();saveSession(second,state.string());
+    // A truncated newest slot falls back to the previous complete exit.
+    std::ofstream(state/".resume-a",std::ios::trunc)<<"incomplete";
+    second.stop();
+    Player fallback(device,folder,folder);restoreSession(fallback,state.string());
+    assert(fallback.paused && fallback.current==2 && fallback.position==1.25);
+    fs::remove(fs::path(folder)/"Albums"/"Música.flac");
+    restoreSession(fallback,state.string());
+    assert(fallback.queue.size()==2 && fallback.current==1 && fallback.position==1.25);
+    fallback.stop();fallback.selected=1;saveSession(fallback,state.string());
+    Player stopped(device,folder,folder);restoreSession(stopped,state.string());
+    assert(!stopped.audio && stopped.queue.size()==2 && stopped.selected==1);
+    std::cout<<"Session restore, duplicate entries, missing files, paused output and fallback passed.\n";
+}
 // Run with the fixtures created by check-audio.sh.
 int main(int argc,char** argv) {
     assert(argc==2);
@@ -102,6 +134,7 @@ int main(int argc,char** argv) {
     for(int i=0;i<200 && p.current==0;i++) {p.tick();std::this_thread::sleep_for(std::chrono::milliseconds(10));}
     assert(p.current==1);
     p.stop();
-    checkMixes(p,folder);
+    checkMixes(p,folder);p.stop();
+    checkResume(device,folder);
     std::cout<<"PCM equality, pause, seek, EQ, folder navigation and end-of-track transitions passed.\n";
 }

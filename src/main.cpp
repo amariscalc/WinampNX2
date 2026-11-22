@@ -1,4 +1,5 @@
 #include "skin.hpp"
+#include "session.hpp"
 #include <cstdio>
 #include <cstdlib>
 #include <stdexcept>
@@ -23,13 +24,16 @@ int main(int argc,char** argv) {
 #ifdef __SWITCH2__
         (void)argc;(void)argv;
         Player player(device,"sdmc:/","sdmc:/music");
+        std::string sessionDir="sdmc:/switch/WinampNX2";
 #else
         std::string dir=argc>1?argv[1]:".";
         while(dir.size()>1 && dir.back()=='/') dir.pop_back();
         Player player(device,dir,dir);
         bool capturing=argc==4 && std::string(argv[2])=="--capture";
+        std::string sessionDir=capturing?"":dir;
         if(capturing) player.play(0);
 #endif
+        if(!sessionDir.empty()) restoreSession(player,sessionDir);
         auto skin=std::make_unique<Skin>();
         bool run=true;
         while(run) {
@@ -59,6 +63,7 @@ int main(int argc,char** argv) {
             }
 #endif
         }
+        if(!sessionDir.empty()) saveSession(player,sessionDir);
     } catch(const std::exception& e) {
         std::fprintf(stderr,"WinampNX2: %s\n",e.what());
 #ifdef __SWITCH2__

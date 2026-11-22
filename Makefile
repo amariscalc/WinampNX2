@@ -31,7 +31,7 @@ build/WinampNX2.elf: $(NX_OBJ) $(CODECS)/lib/libavcodec.a
 
 build/WinampNX2.nacp: Makefile
 	@mkdir -p build
-	$(DEVKITPRO)/tools/bin/nacptool --create WinampNX2 "amariscalc" 0.2.0 $@
+	$(DEVKITPRO)/tools/bin/nacptool --create WinampNX2 "amariscalc" 0.3.0 $@
 
 build/WinampNX2.nro: build/WinampNX2.elf build/WinampNX2.nacp assets/icon.jpg
 	$(DEVKITPRO)/tools/bin/elf2nro $< $@ --nacp=build/WinampNX2.nacp --icon=assets/icon.jpg

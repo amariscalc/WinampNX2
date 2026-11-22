@@ -10,6 +10,12 @@ A local music player for Nintendo Switch 2 by [amariscalc](https://github.com/am
 2. Put music in `/music/`, or press **X** in the player to browse another folder.
 3. Launch WinampNX2 from hbmenu. Select a track and press **A**. Opening an audio file queues the tracks in that folder in filename order.
 
+## Resume playback
+
+Exit with **+** to save the playing queue, track and elapsed time. The next launch opens that track **paused**. Press **A** to continue. This works with a folder or an M3U8 mix, including repeated tracks. A stopped queue reopens with the selected row highlighted.
+
+Sessions are saved on a normal exit to the application directory on the SD card (`/switch/WinampNX2/`). Two small files keep the latest save and its predecessor. An interrupted write can fall back to the previous complete save. Missing tracks are skipped. If the current track was removed, the next available entry is selected at the beginning, or the last surviving entry if necessary. If the queue is entirely unavailable, the player opens its usual library view.
+
 ## Mixes
 
 Open **Files** and tap the **+** beside a track to add it to a mix. With a controller, highlight the track, press **Minus (−)** and choose **Add selected track**. Keep browsing to add songs from other folders. Additions go into a separate draft, so the current song keeps playing.
@@ -76,7 +82,7 @@ make desktop
 bash tests/check-audio.sh
 ```
 
-The original console tests on v0.1.0 covered MP3, FLAC (16-bit/48 kHz and 24-bit/96 kHz), ALAC and Opus, automatic track changes, pause/resume and seeking. Creating, saving and reopening an M3U8 mix from the SD card has also been tested on a physical Nintendo Switch 2 with v0.2.0. Screenshots use the shared renderer. To capture the player, browser and mix menu, run the desktop build with `/path/to/music --capture preview`.
+The original console tests on v0.1.0 covered MP3, FLAC (16-bit/48 kHz and 24-bit/96 kHz), ALAC and Opus, automatic track changes, pause/resume and seeking. Creating, saving and reopening an M3U8 mix from the SD card has also been tested on a physical Nintendo Switch 2 with v0.2.0. The v0.3.0 resume workflow has been tested across desktop process restarts. Screenshots use the shared renderer. To capture the player, browser and mix menu, run the desktop build with `/path/to/music --capture preview`.
 
 ## Credits
 
