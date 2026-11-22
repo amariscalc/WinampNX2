@@ -13,7 +13,13 @@ struct Player {
     std::vector<Entry> queue,files,draft;
     bool menu=false, hasSession=false;
     int menuRow=0;
-    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, ActionCount};
+    std::string mixPath, editName;
+    bool naming=false;
+    int letter=0;
+    static constexpr const char* alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_";
+    void nameKey(Key key);
+    void editMix(int action);
+    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, Rename, MoveUp, MoveDown, RemoveTrack, ActionCount};
     void mixAction(MixAction action);
     void openMenu();
     std::string menuLabel(MixAction action) const;

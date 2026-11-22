@@ -43,6 +43,13 @@ static void checkMixes(Player& p,const std::string& root) {
     p.fileRow=rowFor(p,"Mix-001");p.enter();
     assert(p.queueName=="Mix-001" && p.current==0 && p.queue.size()==2 && p.audio);
     p.step(1);assert(p.current==1 && p.audio->format=="flac");
+    p.mixAction(Player::MoveUp);assert(p.current==0 && p.queue.front().name=="Música");
+    p.mixAction(Player::MoveDown);assert(p.current==1);
+    p.mixAction(Player::Rename);assert(p.naming);p.nameKey(Key::Right);p.nameKey(Key::Accept);
+    assert(!p.naming && fs::exists(dir/"A.m3u8"));
+    p.selected=0;p.mixAction(Player::RemoveTrack);
+    assert(p.current==0 && p.queue.size()==1 && fs::exists(fs::path(root)/"wave.wav"));
+    assert(readMix(root,(dir/"A.m3u8").string()).tracks.size()==1);
     auto imported=dir/"External.m3u";
     std::ofstream(imported,std::ios::binary)<<"\xef\xbb\xbf#EXTM3U\r\n#EXTINF:3,title\r\n"
         <<"..\\Albums\\Música.flac\r\n/wave.wav\nsdmc:/wave.wav\nhttps://example.org/other.mp3\n"
@@ -53,7 +60,7 @@ static void checkMixes(Player& p,const std::string& root) {
     std::ofstream(dir/"Empty.m3u8")<<"#EXTM3U\nmissing.mp3\n";
     p.mixAction(Player::OpenSaved);p.fileRow=rowFor(p,"Empty");
     playing=p.audio.get();p.enter();
-    assert(p.audio.get()==playing && p.queue.size()==2 && !p.notice.empty());
+    assert(p.audio.get()==playing && p.queue.size()==1 && !p.notice.empty());
     p.fileRow=rowFor(p,"External");p.enter();
     assert(p.queue.size()==3 && p.audio && p.notice=="Skipped 4 unavailable");
     p.mixAction(Player::Add);

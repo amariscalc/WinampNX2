@@ -1,5 +1,8 @@
 #include "player.hpp"
 #include <ctime>
+#include <filesystem>
+#include <cstring>
+#include <cstdio>
 #include <stdexcept>
 Player::Player(Platform& d,std::string r,std::string f):device(d),root(std::move(r)),folder(std::move(f)),musicFolder(folder),rng(std::time(nullptr)) {
     try { loadFolder(folder); }
@@ -87,16 +90,79 @@ void Player::chooseFile() {
             auto loaded=readMix(root,chosen.path);
             if(loaded.tracks.empty()) {notice="No playable tracks in this list";return;}
             queue=std::move(loaded.tracks);
-            queueName=chosen.name; view=View::Playlist;
+            mixPath=loaded.skipped?std::string():chosen.path;queueName=chosen.name; view=View::Playlist;
             play(0);
             if(audio && loaded.skipped) notice="Skipped "+std::to_string(loaded.skipped)+" unavailable";
         } catch(const std::exception& error) {notice=error.what();}
         return;
     }
-    queue.clear();queueName="LOCAL PLAYLIST";
+    mixPath.clear();queue.clear();queueName="LOCAL PLAYLIST";
     for(auto& f:files) if(f.track()) queue.push_back(f);
     auto it=std::find_if(queue.begin(),queue.end(),[&](const Entry& e){return e.path==chosen.path;});
     view=View::Playlist; play(int(it-queue.begin()));
+}
+void Player::nameKey(Key key) {
+    const int count=std::strlen(alphabet);
+    if(key==Key::Back) {naming=false;return;}
+    if(key==Key::Up || key==Key::Down) letter=(letter+count+(key==Key::Up?1:-1))%count;
+    if(key==Key::Left && !editName.empty()) editName.pop_back();
+    if(key==Key::Right && editName.size()<64) editName+=alphabet[letter];
+    if(key!=Key::Accept) return;
+    if(editName.empty() || editName.back()==' ') {notice="Choose a name";return;}
+    namespace fs=std::filesystem;
+    try {
+        auto target=fs::path(mixPath).parent_path()/(editName+".m3u8");
+        if(target!=fs::path(mixPath)) {
+            if(fs::exists(target)) throw std::runtime_error("Name already exists");
+            fs::rename(mixPath,target);
+        }
+        mixPath=target.string();queueName=editName;naming=false;notice="Mix renamed";
+    } catch(const std::exception&) {notice="Cannot rename: check name";}
+}
+void Player::editMix(int action) {
+    namespace fs=std::filesystem;
+    if(view!=View::Playlist || mixPath.empty() ||
+       fs::path(mixPath).parent_path()!=fs::path(musicFolder)/"Playlists" ||
+       upper(fs::path(mixPath).extension().string())!=".M3U8") {
+        notice="Open a saved mix first";return;
+    }
+    auto disk=readMix(root,mixPath);
+    if(disk.skipped || disk.tracks.size()!=queue.size() ||
+       !std::equal(queue.begin(),queue.end(),disk.tracks.begin(),
+           [](const Entry& a,const Entry& b){return a.path==b.path;})) {
+        notice="Mix changed: reopen it";return;
+    }
+    if(action==Rename) {editName="";letter=0;naming=true;notice.clear();return;}
+    auto next=queue;
+    int dest=selected;
+    int playing=current;
+    if(action==RemoveTrack) {
+        if(next.size()==1) {notice="Keep at least one track";return;}
+        next.erase(next.begin()+selected);
+        if(playing==selected) playing=-1;
+        else if(playing>selected) --playing;
+        dest=std::min(selected,int(next.size())-1);
+    } else {
+        dest+=action==MoveUp?-1:1;
+        if(dest<0 || dest>=int(queue.size())) {notice="Already at end of list";return;}
+        std::swap(next[selected],next[dest]);
+        if(playing==selected) playing=dest;
+        else if(playing==dest) playing=selected;
+    }
+    auto folder=fs::path(mixPath).parent_path();
+    auto backup=mixPath+".bak";
+    if(fs::exists(backup)) throw std::runtime_error("Recover the .bak file first");
+    auto staged=folder/writeMix(musicFolder,next);
+    if(std::rename(mixPath.c_str(),backup.c_str())!=0) {
+        std::remove(staged.c_str());throw std::runtime_error("Cannot update mix");
+    }
+    if(std::rename(staged.c_str(),mixPath.c_str())!=0) {
+        std::rename(backup.c_str(),mixPath.c_str());std::remove(staged.c_str());
+        throw std::runtime_error("Cannot publish mix edit");
+    }
+    std::remove(backup.c_str());
+    if(current>=0 && playing<0) stop();
+    queue=std::move(next);selected=dest;current=playing;notice="Mix updated";
 }
 void Player::openMenu() {
     menu=!menu;menuRow=0;
@@ -107,6 +173,10 @@ std::string Player::menuLabel(MixAction action) const {
         case Undo:return "Remove last addition";
         case SaveDraft:return "Save mix ("+std::to_string(draft.size())+")";
         case SaveQueue:return "Save current playlist";
+        case Rename:return "Rename mix";
+        case MoveUp:return "Move track up";
+        case MoveDown:return "Move track down";
+        case RemoveTrack:return "Remove from mix";
         case OpenSaved:return "Open saved mixes";
         default:return {};
     }
@@ -134,6 +204,7 @@ void Player::mixAction(MixAction action) {
                 if(view==View::Files && folder==mixDirectory(musicFolder)) loadFolder(folder);
                 notice="Saved "+name;break;
             }
+            case Rename: case MoveUp: case MoveDown: case RemoveTrack: editMix(action);break;
             case OpenSaved:
                 loadFolder(mixDirectory(musicFolder));view=View::Files;break;
             default:break;
@@ -152,6 +223,7 @@ void Player::enter() {
     else play(selected);
 }
 void Player::input(Key key) {
+    if(naming) {nameKey(key);return;}
     if(key==Key::Mix) {openMenu();return;}
     if(menu) {
         if(key==Key::Back) menu=false;

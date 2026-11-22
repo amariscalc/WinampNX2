@@ -217,13 +217,21 @@ void listing(Canvas& c,const Player& p) {
     if(p.menu) {
         c.panel(383,36,240,221);c.title(389,42,228,"MIX MENU");
         for(int row=0;row<Player::ActionCount;row++) {
-            int y=66+row*29;
+            int y=60+row*20;
             bool focus=row==p.menuRow;
-            c.box(392,y,221,25,focus?0x252a71:well);
-            c.text(401,y+4,p.menuLabel(static_cast<Player::MixAction>(row)),focus?lit:green,body,203);
+            c.box(392,y,221,18,focus?0x252a71:well);
+            c.text(401,y+1,p.menuLabel(static_cast<Player::MixAction>(row)),focus?lit:green,body,203);
         }
-        c.text(392,216,"Draft: "+std::to_string(p.draft.size())+" tracks",muted);
-        c.button(544,226,68,20,"CLOSE");
+        c.text(392,240,"Draft: "+std::to_string(p.draft.size())+" tracks",muted);
+        c.button(544,240,68,14,"CLOSE");
+    }
+    if(p.naming) {
+        c.panel(383,36,240,221);c.title(389,42,228,"RENAME MIX");
+        c.text(394,74,p.editName+"_",green,body,215);
+        c.text(394,110,"Letter: "+std::string(1,Player::alphabet[p.letter]),gold,body);
+        const char* labels[]={"PREV","NEXT","ADD","DEL","SAVE","CANCEL"};
+        for(int i=0;i<6;i++) c.button(393+i%3*73,145+i/3*32,69,25,labels[i]);
+        c.text(394,222,"D-pad: letter / edit   A: save",paper);
     }
 }
 }
@@ -238,14 +246,21 @@ void Skin::draw(const Player& p) {
         "A  Play / pause     X  Files     Y  EQ     L/R  Track";
     if(p.menu) guide="D-PAD  Select      A  Choose      B  Close";
     c.text(13,339,guide,0xc1c1ca);
-    c.text(466,339,"WinampNX2 0.3.0 / by amariscalc",gold,small);
+    c.text(466,339,"WinampNX2 0.4.0 / by amariscalc",gold,small);
 }
 void Skin::touch(Player& p,const Input& e) {
     int x=e.x,y=e.y;bool tap=e.key==Key::Tap;
+    if(p.naming) {
+        if(tap && x>=393 && x<612 && y>=145 && y<209) {
+            const Key keys[]={Key::Down,Key::Up,Key::Right,Key::Left,Key::Accept,Key::Back};
+            p.nameKey(keys[(y-145)/32*3+(x-393)/73]);
+        }
+        return;
+    }
     if(p.menu) {
         if(!tap) return;
-        if(x>=392 && x<613 && y>=66 && y<66+Player::ActionCount*29) {
-            p.mixAction(static_cast<Player::MixAction>((y-66)/29));
+        if(x>=392 && x<613 && y>=60 && y<60+Player::ActionCount*20) {
+            p.mixAction(static_cast<Player::MixAction>((y-60)/20));
         } else p.menu=false;
         return;
     }

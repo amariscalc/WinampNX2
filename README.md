@@ -29,6 +29,12 @@ Open **MIX → Save mix** to write the draft to `/music/Playlists/Mix-001.m3u8`.
 
 ![Mix menu in the SD browser](docs/mix.png)
 
+### Edit a saved mix
+
+Open a saved M3U8 from the Playlists folder and highlight a track in the playlist editor. Open MIX to move it up or down, or remove it from the list. Each edit saves immediately. Removing the playing entry stops playback. Keep at least one track per mix. After restoring a session, reopen the playlist file before editing.
+
+Choose **Rename mix** to enter a new name. Up/down selects a letter, right appends it, left deletes it, A saves and B cancels. The touch buttons perform the same actions.
+
 ## Audio
 
 | Format | Supported files |
