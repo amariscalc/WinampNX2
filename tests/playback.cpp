@@ -137,7 +137,7 @@ static void checkLibrary(Platform& device,const std::string& folder) {
     player.mixAction(Player::Library);
     assert(player.overlay==Player::Overlay::Search);
     player.searchQuery="cOvErS";
-    player.input(Key::Accept);
+    player.keyPress(39);
     assert(player.audio.get()==playing && player.libraryView);
     assert(player.browserEntries().size()==1 && player.browserEntries().front().name=="art");
     player.mixAction(Player::PlayNext);
@@ -190,6 +190,45 @@ static void checkLibraryIndex(Platform& device,const std::string& folder) {
     restored.playbackOption(7);
     assert(restored.sleepAtEnd);
 }
+static void checkPlaybackTools(Platform& device,const std::string& folder) {
+    namespace fs=std::filesystem;
+    auto tools=fs::path(folder)/"Albums";
+    fs::copy_file(fs::path(folder)/"wave.wav",tools/"chapters.wav");
+    std::ofstream(tools/"chapters.lrc")<<"[00:00.00]First\n[00:01.00]Second\n";
+    std::ofstream(tools/"chapters.cue")<<"FILE \"chapters.wav\" WAVE\n TRACK 01 AUDIO\n INDEX 01 00:00:00\n TRACK 02 AUDIO\n INDEX 01 00:01:00\n";
+    Player player(device,folder,folder);
+    player.loadExtras(tools.string());
+    player.loadFolder(tools.string());player.view=View::Files;
+    player.fileRow=rowFor(player,"chapters");player.chooseFile();
+    assert(player.audio);
+    player.mixAction(Player::Lyrics);
+    assert(player.overlay==Player::Overlay::Lyrics && player.timedLines.size()==2);
+    player.mixAction(Player::Cue);
+    player.input(Key::Down);player.input(Key::Accept);
+    assert(player.position==1.);
+    player.bookmark(true);player.seek(0);player.bookmark(false);
+    assert(player.position==1.);
+    player.mixAction(Player::Tags);player.tags={"New title","New artist","New album","2"};
+    player.saveTags();
+    assert(player.audio->title=="New title" && player.audio->trackNumber==2);
+    player.refreshLibrary();
+    player.searchQuery="new title";player.searchLibrary();
+    assert(player.libraryResults.size()==1);
+    auto* active=player.audio.get();
+    player.mixAction(Player::QueueEdit);
+    player.input(Key::Right);
+    assert(player.audio.get()==active);
+    player.stop();
+}
+static void checkTempo(const std::string& folder) {
+    Decoder decoder;
+    decoder.open(folder+"/wave.wav");
+    decoder.setSpeed(1.5);
+    size_t frames=0;
+    std::vector<float> output;
+    while(decoder.read(output)) frames+=output.size()/2;
+    assert(frames>85000 && frames<110000);
+}
 // Run with the fixtures created by check-audio.sh.
 int main(int argc,char** argv) {
     assert(argc==2);
@@ -234,5 +273,7 @@ int main(int argc,char** argv) {
     checkExtras(device,folder);
     checkLibrary(device,folder);
     checkLibraryIndex(device,folder);
+    checkTempo(folder);
+    checkPlaybackTools(device,folder);
     std::cout<<"PCM equality, pause, seek, EQ, folder navigation and end-of-track transitions passed.\n";
 }

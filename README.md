@@ -59,6 +59,18 @@ Choose **MIX → Search music library**. Up/down selects a character, right adds
 - **ReplayGain** offers Off, Track and Album modes for tagged files. Album mode falls back to track gain if the album tag is missing.
 - **Sleep timer** stops playback after 15, 30 or 60 minutes, or at the end of the current track. Cancel it from the same menu.
 
+## Playback and library tools in v0.8.0
+
+- On-screen keyboard for search and mix names, with controller and touch controls.
+- Reorder or remove tracks in the active queue independently of saved mixes.
+- Open same-name CUE and LRC sidecars for chapter seeking and synchronized lyrics.
+- Save and recall a playback bookmark per file.
+- Edit title, artist, album and track number as local library overrides stored on the SD card.
+- Use cover.jpg or folder.jpg when embedded JPEG artwork is unavailable.
+- Play at 1.00x, 1.25x or 1.50x while retaining pitch through FFmpeg atempo.
+
+Open these tools from **MIX**. Start playing a track before opening its CUE, lyrics, bookmarks or tags. Use a matching name such as `album.flac` and `album.cue`, or `song.mp3` and `song.lrc`. Local tag edits leave embedded audio-file metadata intact.
+
 ## Audio
 
 | Format | Supported files |
@@ -104,7 +116,7 @@ sha256sum build/WinampNX2.nro
 
 The first build fetches and verifies FFmpeg 7.1.5. To use a local copy, place the source archive at `build/vendor/ffmpeg-7.1.5.tar.xz` first. See the [codec build script](scripts/build-codecs.sh) and the [packaged binary checksum](dist/SHA256SUMS).
 
-The desktop build uses C++17, pkg-config, SDL2 and FFmpeg 7 development libraries (avformat, avcodec, swresample, swscale and avutil). Tests also use the FFmpeg command-line encoder.
+The desktop build uses C++17, pkg-config, SDL2 and FFmpeg 7 development libraries (avformat, avcodec, swresample, swscale, avfilter and avutil). Tests also use the FFmpeg command-line encoder.
 
 ```sh
 make desktop

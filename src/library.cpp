@@ -76,6 +76,7 @@ void Player::loadLibraryState() {
         }
         indexReady=index.eof();
     }
+    applyLibraryTags();
     auto historyFile=openFile(fs::path(settingsDir)/"listening-history.txt");
     while(history.size()<100 && historyFile>>std::quoted(relative))
         if(auto entry=resolveAudioEntry(root,relative)) history.push_back(std::move(*entry));
@@ -94,6 +95,7 @@ void Player::refreshLibrary() {
                <<std::quoted(t.artist)<<' '<<std::quoted(t.album)<<' '<<std::quoted(t.genre)<<'\n';
     });
     libraryIndex=std::move(refreshed);indexReady=true;
+    applyLibraryTags();
 }
 void Player::showLibraryResults(std::vector<Entry> results,int group) {
     libraryResults=std::move(results);

@@ -225,17 +225,59 @@ void listing(Canvas& c,const Player& p) {
         c.text(392,240,std::to_string(p.menuRow+1)+"/"+std::to_string(Player::ActionCount)+"  MORE >",muted);
         c.button(544,240,68,14,"CLOSE");
     }
-    if(p.naming) {
-        c.panel(383,36,240,221);c.title(389,42,228,"RENAME MIX");
-        c.text(394,74,p.editName+"_",green,body,215);
-        c.text(394,110,"Letter: "+std::string(1,Player::alphabet[p.letter]),gold,body);
-        const char* labels[]={"PREV","NEXT","ADD","DEL","SAVE","CANCEL"};
-        for(int i=0;i<6;i++) c.button(393+i%3*73,145+i/3*32,69,25,labels[i]);
-        c.text(394,222,"D-pad: letter / edit   A: save",paper);
-    }
+
 }
 void fullScreen(Canvas& c,const Player& p) {
     using Overlay=Player::Overlay;
+    if(p.keyboardMode()) {
+        c.panel(8,10,624,314);c.title(14,15,612,p.tagField>=0?"EDIT LIBRARY TAG":p.naming?"RENAME MIX":"SEARCH MUSIC LIBRARY");
+        c.inset(20,49,597,40);
+        c.text(29,62,(p.tagField>=0?p.tags[p.tagField]:p.naming?p.editName:p.searchQuery)+"_",green,body,570);
+        for(int i=0;i<40;i++) c.button(20+i%10*60,105+i/10*46,56,40,Player::keyLabel(i),i==p.keyboard);
+        c.text(20,299,p.notice.empty()?"D-pad selects   A types   B cancels":p.notice,paper,small,475);
+        c.button(530,289,86,24,"BACK");
+        return;
+    }
+    if(p.overlay==Overlay::Speed || p.overlay==Overlay::Tags) {
+        const bool tags=p.overlay==Overlay::Tags;
+        c.panel(8,10,624,314);c.title(14,15,612,tags?"LIBRARY TAGS":"PLAYBACK SPEED");
+        const char* fields[]={"Title","Artist","Album","Track","Save"};
+        const char* rates[]={"1.00x","1.25x","1.50x"};
+        for(int row=0;row<(tags?5:3);++row) {
+            int y=48+row*40;
+            c.box(24,y,592,34,row==p.panelRow?0x252a71:well);
+            std::string label=tags?fields[row]:rates[row];
+            if(tags && row<4) label+="  "+p.tags[row];
+            c.text(33,y+8,label,paper,body,560);
+        }
+        c.text(25,298,p.notice,paper,small,490);
+        c.button(530,289,86,24,"BACK");
+        return;
+    }
+    if(p.overlay==Overlay::Queue || p.overlay==Overlay::Lyrics || p.overlay==Overlay::Cue) {
+        bool queue=p.overlay==Overlay::Queue,lyrics=p.overlay==Overlay::Lyrics;
+        c.panel(8,10,624,314);c.title(14,15,612,queue?"PLAYBACK QUEUE":lyrics?"SYNCED LYRICS":"CUE CHAPTERS");
+        int count=queue?int(p.queue.size()):int(p.timedLines.size()),active=p.panelRow;
+        if(lyrics) {
+            auto it=std::upper_bound(p.timedLines.begin(),p.timedLines.end(),p.position,[](double t,const auto& row){return t<row.first;});
+            active=int(it-p.timedLines.begin())-1;
+        }
+        int top=std::max(0,active-(lyrics?3:7));
+        for(int row=top;row<std::min(top+8,count);row++) {
+            int y=44+(row-top)*30;
+            c.box(24,y,592,27,row==active?0x252a71:well);
+            auto text=queue?p.queue[row].name:clockText(p.timedLines[row].first)+"  "+p.timedLines[row].second;
+            c.text(33,y+6,text,row==active?green:paper,body,565);
+        }
+        if(queue) {
+            c.button(24,289,76,24,"MOVE UP");
+            c.button(105,289,91,24,"MOVE DOWN");
+            c.button(201,289,80,24,"REMOVE");
+            c.text(290,298,p.notice,paper,small,234);
+        } else c.text(24,298,lyrics?"B returns":"A jumps to chapter   B returns",paper,small);
+        c.button(530,289,86,24,"BACK");
+        return;
+    }
     if(p.overlay==Overlay::PlaybackOptions) {
         c.panel(8,10,624,314);c.title(14,15,612,"PLAYBACK OPTIONS");
         for(int i=0;i<8;i++) {
@@ -245,17 +287,7 @@ void fullScreen(Canvas& c,const Player& p) {
         c.button(512,289,104,22,"BACK");
         return;
     }
-    if(p.overlay==Overlay::Search) {
-        c.panel(8,10,624,314);c.title(14,15,612,"SEARCH MUSIC LIBRARY");
-        c.inset(25,50,590,36);
-        c.text(36,58,p.searchQuery+"_",green,body,566);
-        c.text(36,105,"Character: "+std::string(1,Player::alphabet[p.searchCharacter]),gold,body);
-        c.text(36,136,"Up/down select   Right adds   Left deletes",paper,body);
-        c.text(36,163,"A searches /music   B returns",paper,body);
-        const char* labels[]={"PREV","NEXT","ADD","DELETE","SEARCH","BACK"};
-        for(int i=0;i<6;i++) c.button(25+100*i,225,94,32,labels[i]);
-        return;
-    }
+
     const bool presets=p.overlay==Overlay::Presets, info=p.overlay==Overlay::Info;
     c.panel(8,10,624,314);
     c.title(14,15,612,presets?"EQUALIZER PRESETS":info?"NOW PLAYING":p.overlay==Overlay::Wave?"OSCILLOSCOPE":"SPECTRUM ANALYZER");
@@ -305,7 +337,7 @@ void Skin::draw(const Player& p) {
     Canvas c{pixels.data()};
     c.grad(0,0,width,height,0x151721,0x0b0d14);
     for(int y=0;y<height;y+=4) for(int x=y%8;x<width;x+=8)c.box(x,y,1,1,0x232433);
-    if(p.overlay!=Player::Overlay::None) {
+    if(p.keyboardMode() || p.overlay!=Player::Overlay::None) {
         fullScreen(c,p);
         c.text(13,339,p.overlay==Player::Overlay::Presets?"D-PAD  Select   A  Apply   B  Back":"B  Back",paper);
         return;
@@ -317,17 +349,37 @@ void Skin::draw(const Player& p) {
         "A  Play / pause     X  Files     Y  EQ     L/R  Track";
     if(p.menu) guide="D-PAD  Select      A  Choose      B  Close";
     c.text(13,339,guide,0xc1c1ca);
-    c.text(466,339,"WinampNX2 0.7.0 / by amariscalc",gold,small);
+    c.text(466,339,"WinampNX2 0.8.0 / by amariscalc",gold,small);
 }
 void Skin::touch(Player& p,const Input& e) {
     int x=e.x,y=e.y;bool tap=e.key==Key::Tap;
-    if(p.overlay==Player::Overlay::Search) {
-        if(tap && x>=25 && x<625 && y>=225 && y<257) {
-            const Key keys[]={Key::Down,Key::Up,Key::Right,Key::Left,Key::Accept,Key::Back};
-            p.searchKey(keys[(x-25)/100]);
+    if(p.keyboardMode()) {
+        if(tap && x>=530 && y>=289 && y<=313) p.typeKey(Key::Back);
+        else if(tap && x>=20 && x<620 && y>=105 && y<289) p.keyPress((y-105)/46*10+(x-20)/60);
+        return;
+    }
+    if(p.overlay==Player::Overlay::Speed || p.overlay==Player::Overlay::Tags) {
+        if(tap && x>=530 && y>=289 && y<=313) p.panelKey(Key::Back);
+        else if(tap && x>=24 && x<616 && y>=48 && y<(p.overlay==Player::Overlay::Tags?248:168)) {
+            p.panelRow=(y-48)/40;p.panelKey(Key::Accept);
         }
         return;
     }
+    if(p.overlay==Player::Overlay::Queue || p.overlay==Player::Overlay::Lyrics || p.overlay==Player::Overlay::Cue) {
+        if(tap && x>=530 && y>=289 && y<=313) p.panelKey(Key::Back);
+        else if(tap && p.overlay==Player::Overlay::Queue && y>=289 && y<=313) {
+            if(x>=24 && x<=100) p.panelKey(Key::Left);
+            else if(x>=105 && x<=196) p.panelKey(Key::Right);
+            else if(x>=201 && x<=281) p.panelKey(Key::Accept);
+        } else if(tap && (p.overlay==Player::Overlay::Cue || p.overlay==Player::Overlay::Queue) && x>=24 && x<616 && y>=44 && y<284) {
+            int row=std::max(0,p.panelRow-7)+(y-44)/30;
+            if(p.overlay==Player::Overlay::Queue) {
+                if(row<int(p.queue.size())) p.panelRow=row;
+            } else if(row<int(p.timedLines.size())) {p.panelRow=row;p.panelKey(Key::Accept);}
+        }
+        return;
+    }
+
     if(p.overlay!=Player::Overlay::None) {
         if(!tap) return;
         if(x>=512 && x<=616 && y>=289 && y<=311) p.input(Key::Back);
@@ -338,13 +390,7 @@ void Skin::touch(Player& p,const Input& e) {
         else if(x>=25 && x<=163 && y>=289 && y<=311) p.input(Key::Accept);
         return;
     }
-    if(p.naming) {
-        if(tap && x>=393 && x<612 && y>=145 && y<209) {
-            const Key keys[]={Key::Down,Key::Up,Key::Right,Key::Left,Key::Accept,Key::Back};
-            p.nameKey(keys[(y-145)/32*3+(x-393)/73]);
-        }
-        return;
-    }
+
     if(p.menu) {
         if(!tap) return;
         if(x>=392 && x<613 && y>=60 && y<60+Player::menuVisible*20) {

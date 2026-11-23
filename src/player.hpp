@@ -21,11 +21,27 @@ struct Player {
     static constexpr const char* alphabet="ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789 -_";
     void nameKey(Key key);
     void editMix(int action);
-    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, Rename, MoveUp, MoveDown, RemoveTrack, PlayNext, QueueLast, Favorite, Favorites, Presets, TrackInfo, Visualizer, Library, Artists, Albums, Genres, Recent, History, RefreshLibrary, ReplayGain, Sleep, ActionCount};
+    enum MixAction {Add, Undo, SaveDraft, SaveQueue, OpenSaved, Rename, MoveUp, MoveDown, RemoveTrack, PlayNext, QueueLast, Favorite, Favorites, Presets, TrackInfo, Visualizer, Library, Artists, Albums, Genres, Recent, History, RefreshLibrary, ReplayGain, Sleep, QueueEdit, BookmarkSave, BookmarkGo, Lyrics, Cue, Speed, Tags, ActionCount};
     static constexpr int menuVisible=9;
     int menuTop() const {return std::max(0,menuRow-menuVisible+1);}
-    enum class Overlay {None, Presets, Info, Spectrum, Wave, Search, PlaybackOptions};
+    enum class Overlay {None, Presets, Info, Spectrum, Wave, Search, PlaybackOptions, Queue, Lyrics, Cue, Speed, Tags};
     Overlay overlay=Overlay::None;
+    int panelRow=0, keyboard=0, tagField=-1;
+    std::array<std::string,4> tags{};
+    std::string tagPath;
+    double speed=1.;
+    void setPlaybackSpeed(double rate);
+    void loadTags(Decoder& decoder,const std::string& path) const;
+    void saveTags();
+    void applyLibraryTags();
+    bool keyboardMode() const {return naming || overlay==Overlay::Search || tagField>=0;}
+    static const char* keyLabel(int index);
+    void keyPress(int index);
+    void typeKey(Key key);
+    std::vector<std::pair<double,std::string>> timedLines;
+    void openTimed(bool cue);
+    void panelKey(Key key);
+    void bookmark(bool save);
     bool favoritesView=false, libraryView=false;
     std::vector<Entry> libraryResults;
     std::string searchQuery;

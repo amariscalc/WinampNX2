@@ -1,6 +1,8 @@
 #include "decoder.hpp"
 #include <algorithm>
 #include <cmath>
+#include <fstream>
+#include <filesystem>
 #include <cstdlib>
 #include <cstring>
 #include <libavutil/replaygain.h>
@@ -16,6 +18,7 @@ static void check(int result, const char* action) {
     throw std::runtime_error(std::string(action) + ": " + message);
 }
 void Decoder::close() {
+    setSpeed(1.);
     av_packet_free(&packet);
     av_frame_free(&frame);
     swr_free(&converter);
@@ -24,6 +27,7 @@ void Decoder::close() {
 }
 void Decoder::open(const std::string& path) {
     close();
+    mediaPath=path;
     draining = false;
     discardBefore = -1;
     AVDictionary* options = nullptr;
@@ -101,7 +105,7 @@ int Decoder::convert(const uint8_t** input,int count,std::vector<float>& samples
     samples.resize(size_t(written)*2);
     return written;
 }
-bool Decoder::read(std::vector<float>& samples) {
+bool Decoder::readSource(std::vector<float>& samples) {
     for (;;) {
         int status = avcodec_receive_frame(codec,frame);
         if (status == AVERROR_EOF) return convert(nullptr,0,samples)>0;
@@ -159,33 +163,50 @@ void Decoder::loadCover() {
         auto* params=attachment->codecpar;
         if(!(attachment->disposition&AV_DISPOSITION_ATTACHED_PIC) || params->codec_id!=AV_CODEC_ID_MJPEG ||
            attachment->attached_pic.size<=0 || attachment->attached_pic.size>8*1024*1024) continue;
-        const auto* decoder=avcodec_find_decoder(params->codec_id);
-        if(!decoder) return;
-        AVCodecContext* image=avcodec_alloc_context3(decoder);
-        AVFrame* picture=av_frame_alloc();
-        if(image) image->max_pixels=4096*4096;
-        if(image && picture && avcodec_parameters_to_context(image,params)>=0 &&
-           avcodec_open2(image,decoder,nullptr)>=0 && avcodec_send_packet(image,&attachment->attached_pic)>=0 &&
-           avcodec_receive_frame(image,picture)>=0 && picture->width>0 && picture->height>0) {
-            int w=std::max(1,coverSide*picture->width/std::max(picture->width,picture->height));
-            int h=std::max(1,coverSide*picture->height/std::max(picture->width,picture->height));
-            auto* scale=sws_getContext(picture->width,picture->height,AVPixelFormat(picture->format),
-                                       w,h,AV_PIX_FMT_BGRA,SWS_BILINEAR,nullptr,nullptr,nullptr);
-            if(scale) {
-                cover.assign(coverSide*coverSide,0xff101218);
-                constexpr int paddedSide=coverSide+16;
-                std::vector<uint32_t> scaled(paddedSide*(coverSide+1));
-                uint8_t* dest[]={reinterpret_cast<uint8_t*>(scaled.data()),nullptr,nullptr,nullptr};
-                int stride[]={paddedSide*4,0,0,0};
-                if(sws_scale(scale,picture->data,picture->linesize,0,picture->height,dest,stride)==h) {
-                    for(int y=0;y<h;y++)
-                        std::copy_n(scaled.data()+y*paddedSide,w,cover.data()+((coverSide-h)/2+y)*coverSide+(coverSide-w)/2);
-                } else cover.clear();
-                sws_freeContext(scale);
-            }
-        }
-        av_frame_free(&picture);
-        avcodec_free_context(&image);
-        if(!cover.empty()) return;
+        if(decodeCover(attachment->attached_pic)) return;
     }
+    namespace fs=std::filesystem;
+    for(const char* name:{"cover.jpg","folder.jpg","cover.jpeg","folder.jpeg"}) {
+        std::ifstream file(fs::path(mediaPath).parent_path()/name,std::ios::binary|std::ios::ate);
+        auto size=file.tellg();
+        if(size<=0 || size>8*1024*1024) continue;
+        AVPacket* packet=av_packet_alloc();
+        if(!packet) return;
+        bool loaded=false;
+        if(av_new_packet(packet,int(size))>=0) {
+            file.seekg(0);
+            if(file.read(reinterpret_cast<char*>(packet->data),size)) loaded=decodeCover(*packet);
+        }
+        av_packet_free(&packet);
+        if(loaded) return;
+    }
+}
+bool Decoder::decodeCover(const AVPacket& input) {
+    const auto* decoder=avcodec_find_decoder(AV_CODEC_ID_MJPEG);
+    if(!decoder) return false;
+    AVCodecContext* image=avcodec_alloc_context3(decoder);
+    AVFrame* picture=av_frame_alloc();
+    if(image) image->max_pixels=4096*4096;
+    if(image && picture && avcodec_open2(image,decoder,nullptr)>=0 && avcodec_send_packet(image,&input)>=0 &&
+       avcodec_receive_frame(image,picture)>=0 && picture->width>0 && picture->height>0) {
+        int w=std::max(1,coverSide*picture->width/std::max(picture->width,picture->height));
+        int h=std::max(1,coverSide*picture->height/std::max(picture->width,picture->height));
+        auto* scale=sws_getContext(picture->width,picture->height,AVPixelFormat(picture->format),
+                                   w,h,AV_PIX_FMT_BGRA,SWS_BILINEAR,nullptr,nullptr,nullptr);
+        if(scale) {
+            cover.assign(coverSide*coverSide,0xff101218);
+            constexpr int paddedSide=coverSide+16;
+            std::vector<uint32_t> scaled(paddedSide*(coverSide+1));
+            uint8_t* dest[]={reinterpret_cast<uint8_t*>(scaled.data()),nullptr,nullptr,nullptr};
+            int stride[]={paddedSide*4,0,0,0};
+            if(sws_scale(scale,picture->data,picture->linesize,0,picture->height,dest,stride)==h) {
+                for(int y=0;y<h;y++)
+                    std::copy_n(scaled.data()+y*paddedSide,w,cover.data()+((coverSide-h)/2+y)*coverSide+(coverSide-w)/2);
+            } else cover.clear();
+            sws_freeContext(scale);
+        }
+    }
+    av_frame_free(&picture);
+    avcodec_free_context(&image);
+    return !cover.empty();
 }

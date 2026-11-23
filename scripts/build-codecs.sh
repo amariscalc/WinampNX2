@@ -16,7 +16,7 @@ export PATH="$DEVKITPRO/devkitA64/bin:$PATH"
 ./configure --prefix="$prefix" --target-os=none --arch=aarch64 --cpu=cortex-a78c \
   --cross-prefix=aarch64-none-elf- --enable-cross-compile --disable-everything \
   --disable-programs --disable-doc --disable-debug --disable-network --disable-autodetect \
-  --disable-avdevice --disable-avfilter --enable-swscale --disable-postproc --disable-pthreads \
+  --disable-avdevice --enable-avfilter --enable-filter=atempo,abuffer,abuffersink --enable-swscale --disable-postproc --disable-pthreads \
   --disable-w32threads --disable-os2threads --enable-pic --enable-static --disable-shared \
   --extra-cflags="-D__SWITCH__ -D__SWITCH2__ -D_GNU_SOURCE -fPIC -mtp=soft -ftls-model=local-exec -I$DEVKITPRO/libounce/include" \
   --extra-ldflags="-mtp=soft -fPIE -specs=$DEVKITPRO/libounce/switch.specs -L$DEVKITPRO/libounce/lib" --extra-libs="-lnx -lm" \

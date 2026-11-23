@@ -34,10 +34,17 @@ void Player::play(int index,bool startPaused,bool keepPriority) {
     try {
         auto next=std::make_unique<Decoder>();
         next->open(queue[index].path);
+        loadTags(*next,queue[index].path);
+        next->setSpeed(speed);
         paused=startPaused;
         if(!paused) device.pause(false);
         hasSession=true;
         audio=std::move(next); current=index; eq.rebuild();
+        if(overlay==Overlay::Lyrics || overlay==Overlay::Cue) {
+            bool cue=overlay==Overlay::Cue;
+            overlay=Overlay::None;
+            openTimed(cue);
+        }
     } catch(const std::exception& e) {fail(e.what());}
 }
 void Player::toggle() {
@@ -57,6 +64,7 @@ void Player::seek(double seconds) {
     if(!audio || audio->duration<=0) return;
     seconds=std::clamp(seconds,0.,std::max(0.,audio->duration-.02));
     if(!audio->seek(seconds)) {notice="Seeking unavailable";return;}
+    audio->setSpeed(speed);
     device.clearAudio(); decoded.clear(); offset=0; ended=false;
     eq.rebuild(); position=submitted=seconds; bars.fill(0);wave.fill(0);
     if(!paused) device.pause(false);
@@ -82,7 +90,7 @@ void Player::tick() {
         if(filled) {
             device.submit(pcm.data(),filled);
             if(!historyRecorded) rememberTrack();
-            submitted+=double(filled)/Decoder::rate;
+            submitted+=double(filled)*speed/Decoder::rate;
             for(size_t i=0;i<wave.size();i++) {
                 const int sample=int(i)*filled/int(wave.size());
                 wave[i]=(pcm[2*sample]+pcm[2*sample+1])/65536.f;
@@ -91,7 +99,7 @@ void Player::tick() {
             for(size_t i=0;i<bars.size();i++) bars[i]=std::max(newBars[i],bars[i]*.86f);
         }
     }
-    int queued=device.queued(); position=std::max(0.,submitted-queued/double(Decoder::rate));
+    int queued=device.queued(); position=std::max(0.,submitted-queued*speed/double(Decoder::rate));
     if(!queued && ended) {
         if(sleepAtEnd) {sleepAtEnd=false;stop();notice="Sleep timer ended";}
         else step(1,true);
@@ -214,6 +222,13 @@ std::string Player::menuLabel(MixAction action) const {
         case History:return "Listening history";
         case RefreshLibrary:return "Refresh library index";
         case ReplayGain:return "ReplayGain";
+        case QueueEdit:return "Edit playback queue";
+        case BookmarkSave:return "Save bookmark";
+        case BookmarkGo:return "Go to bookmark";
+        case Lyrics:return "Synced lyrics";
+        case Speed:return "Playback speed";
+        case Tags:return "Edit library tags";
+        case Cue:return "CUE chapters";
         case Sleep:return "Sleep timer";
         case Library:return "Search music library";
         case Visualizer:return "Full-screen visualizer";
@@ -277,7 +292,16 @@ void Player::mixAction(MixAction action) {
             case ReplayGain:case Sleep:
                 optionRow=action==ReplayGain?gainMode:3;
                 overlay=Overlay::PlaybackOptions;break;
-            case Library: overlay=Overlay::Search;break;
+            case Speed:panelRow=speed==1.?0:speed==1.25?1:2;overlay=Overlay::Speed;break;
+            case Tags:
+                if(!audio) {notice="Play a track first";break;}
+                tagPath=queue[current].path;
+                tags={audio->title,audio->artist,audio->album,std::to_string(audio->trackNumber)};
+                panelRow=0;overlay=Overlay::Tags;break;
+            case QueueEdit: panelRow=0;overlay=Overlay::Queue;break;
+            case BookmarkSave:case BookmarkGo:bookmark(action==BookmarkSave);break;
+            case Lyrics:case Cue:openTimed(action==Cue);break;
+            case Library: keyboard=0;overlay=Overlay::Search;break;
             case Favorites: libraryView=false;favoritesView=true;view=View::Files;fileRow=0;notice.clear();break;
             case Presets: overlay=Overlay::Presets;presetRow=0;break;
             case TrackInfo: if(audio) audio->loadCover();overlay=Overlay::Info;break;
@@ -300,7 +324,8 @@ void Player::enter() {
     else play(selected);
 }
 void Player::input(Key key) {
-    if(overlay==Overlay::Search) {searchKey(key);return;}
+    if(keyboardMode()) {typeKey(key);return;}
+    if(overlay==Overlay::Queue || overlay==Overlay::Lyrics || overlay==Overlay::Cue || overlay==Overlay::Speed || overlay==Overlay::Tags) {panelKey(key);return;}
     if(overlay!=Overlay::None) {
         if(key==Key::Back || key==Key::Mix) overlay=Overlay::None;
         else if(overlay==Overlay::PlaybackOptions) {

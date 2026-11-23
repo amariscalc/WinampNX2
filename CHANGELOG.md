@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.8.0
+
+- On-screen keyboard for search and mix names, with controller and touch controls.
+- Reorder or remove tracks in the active queue independently of saved mixes.
+- Open same-name CUE and LRC sidecars for chapter seeking and synchronized lyrics.
+- Save and recall a playback bookmark per file.
+- Edit title, artist, album and track number as local library overrides stored on the SD card.
+- Use cover.jpg or folder.jpg when embedded JPEG artwork is unavailable.
+- Play at 1.00x, 1.25x or 1.50x while retaining pitch through FFmpeg atempo.
+
 ## 0.7.0
 
 - Browse and queue indexed music by artist, album or genre, in disc and track order within each album.
